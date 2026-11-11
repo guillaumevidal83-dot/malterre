@@ -1,14 +1,15 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.2.0',
-    WORLD: { radius: 290, fortRing: 215, slots: 8, tier1: 150, tier2: 75, view: 100 },
+    VERSION: '0.3.0',
+    WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
       respawnMob: 90, respawnElite: 1200, respawnBoss: 14400,
       regenNode: 20, minionRevive: 60, playerRespawn: 6,
       xpMult: 1, lootMult: 1, offlineRate: 0.5, offlineMaxH: 12,
       raidLoot: 0.25, raidShieldH: 4, newShieldH: 4, raidDown: 1800, lootTime: 8,
+      relicMult: 1, refund: 0.5,
     },
     CONFIG_LABELS: {
       respawnMob: 'Réapparition des mobs (s)', respawnElite: 'Réapparition des élites (s)',
@@ -18,6 +19,7 @@
       offlineRate: 'Rendement hors ligne (0 à 1)', offlineMaxH: 'Rattrapage maximum (heures)',
       raidLoot: 'Part du stock volée par un pillage (0 à 1)', raidShieldH: 'Bouclier après un pillage (heures)', newShieldH: 'Bouclier d\'un nouveau royaume (heures)',
       raidDown: 'Serviteur de garnison vaincu : indisponible (s)', lootTime: 'Durée du pillage (s)',
+      relicMult: 'Multiplicateur de chance de relique', refund: 'Part remboursée au sacrifice d\'un serviteur (0 à 1)',
     },
     RES: {
       wood: { name: 'Bois', icon: '🌲' }, stone: { name: 'Pierre', icon: '🧱' },
@@ -68,9 +70,11 @@
       bandit: { name: 'Bandit', tier: 1, hp: 55, dmg: 8, speed: 6.5, range: 2, aggro: 10, cd: 1.3, xp: 13, gold: [3, 8], spec: [1, 3], rad: 0.7 },
       spider: { name: 'Araignée géante', tier: 2, hp: 120, dmg: 13, speed: 7.5, range: 2.2, aggro: 11, cd: 1.2, xp: 26, gold: [1, 4], spec: [3, 6], rad: 1.1 },
       orc: { name: 'Orc', tier: 2, hp: 175, dmg: 17, speed: 6.5, range: 2.4, aggro: 12, cd: 1.5, xp: 34, gold: [5, 12], spec: [3, 7], rad: 0.9 },
-      knight: { name: 'Chevalier déchu', tier: 3, hp: 380, dmg: 28, speed: 6.5, range: 2.6, aggro: 14, cd: 1.4, xp: 75, gold: [10, 22], spec: [6, 12], rad: 0.9 },
-      troll: { name: 'Troll', tier: 3, hp: 750, dmg: 38, speed: 5.5, range: 3.2, aggro: 14, cd: 1.9, xp: 170, gold: [20, 40], spec: [12, 22], rad: 1.6, elite: true },
-      guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], rad: 3.4, boss: true },
+      knight: { name: 'Chevalier déchu', tier: 3, hp: 380, dmg: 28, speed: 6.5, range: 2.6, aggro: 14, cd: 1.4, xp: 75, gold: [10, 22], spec: [6, 12], rad: 0.9, relic: 0.04 },
+      broodmother: { name: 'Mère des araignées', model: 'spider', scale: 2.2, tier: 2, hp: 1900, dmg: 30, speed: 6.5, range: 3.4, aggro: 14, cd: 1.5, xp: 380, gold: [40, 70], spec: [30, 50], rad: 2.4, elite: true, relic: 0.6 },
+      warlord: { name: 'Seigneur de guerre orc', model: 'orc', scale: 1.8, tier: 2, hp: 2300, dmg: 42, speed: 6, range: 3.4, aggro: 14, cd: 1.7, xp: 450, gold: [50, 90], spec: [35, 55], rad: 1.7, elite: true, relic: 0.6 },
+      troll: { name: 'Troll', tier: 3, hp: 750, dmg: 38, speed: 5.5, range: 3.2, aggro: 14, cd: 1.9, xp: 170, gold: [20, 40], spec: [12, 22], rad: 1.6, elite: true, relic: 0.25 },
+      guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], rad: 3.4, boss: true, relic: 1 },
     },
     NODES: {
       tree: { name: 'Arbre', res: 'wood', stock: 40 }, rock: { name: 'Rocher', res: 'stone', stock: 40 },
@@ -83,6 +87,33 @@
       altar: { max: 5, cost: { stone: 60, gold: 30, spec: 40 }, desc: '+10 % de vie et de dégâts pour ton héros.' },
       workshop: { max: 5, cost: { wood: 70, stone: 40, gold: 15 }, desc: 'Récolte plus rapide et plus grosse.' },
     },
+    // Fabrications de l'atelier : améliorations permanentes par paliers (palier maximum = niveau de l'atelier).
+    CRAFTS: {
+      weapon: { name: 'Arme du seigneur', icon: '🗡️', who: 'hero', desc: '+12 % de dégâts du héros par palier', cost: { stone: 40, gold: 25, spec: 20 } },
+      armor: { name: 'Armure du seigneur', icon: '🛡️', who: 'hero', desc: '+12 % de vie du héros par palier', cost: { wood: 40, stone: 40, spec: 20 } },
+      boots: { name: 'Bottes du seigneur', icon: '👢', who: 'hero', desc: '+4 % de vitesse du héros par palier', cost: { wood: 30, gold: 15 } },
+      mweapon: { name: 'Armes de la horde', icon: '⚔️', who: 'minion', desc: '+12 % de dégâts des serviteurs par palier', cost: { stone: 50, spec: 40 } },
+      marmor: { name: 'Armures de la horde', icon: '🧥', who: 'minion', desc: '+12 % de vie des serviteurs par palier', cost: { wood: 50, spec: 40 } },
+      tools: { name: 'Outils de récolte', icon: '⛏️', who: 'minion', desc: '+15 % de vitesse de récolte par palier', cost: { wood: 40, stone: 30 } },
+    },
+    CRAFT_MAX: 5,
+    // Reliques : une seule active par catégorie (h = héros, m = serviteurs, f = forteresse).
+    RELICS: {
+      h_vamp: { type: 'h', name: 'Croc de sang', icon: '🦷', desc: 'Tes coups te soignent de 8 % des dégâts infligés.' },
+      h_fury: { type: 'h', name: 'Griffe de fureur', icon: '🔥', desc: '+20 % de dégâts du héros.' },
+      h_haste: { type: 'h', name: 'Sablier fêlé', icon: '⏳', desc: 'Compétences rechargées 25 % plus vite.' },
+      h_stone: { type: 'h', name: 'Cœur de pierre', icon: '💎', desc: '+30 % de vie du héros.' },
+      m_swarm: { type: 'm', name: 'Étendard de la horde', icon: '🚩', desc: '+3 serviteurs au maximum.' },
+      m_venom: { type: 'm', name: 'Lames empoisonnées', icon: '☠️', desc: '+30 % de dégâts des serviteurs.' },
+      m_iron: { type: 'm', name: 'Peaux de fer', icon: '🔩', desc: '+40 % de vie des serviteurs.' },
+      m_swift: { type: 'm', name: 'Semelles de vent', icon: '💨', desc: 'Serviteurs 25 % plus rapides (marche et récolte).' },
+      f_vault: { type: 'f', name: 'Coffre sans fond', icon: '🧰', desc: '+50 % de stock maximum.' },
+      f_harvest: { type: 'f', name: 'Corne d\'abondance', icon: '🌾', desc: '+2 ressources par voyage de récolte.' },
+      f_ward: { type: 'f', name: 'Sceau de garde', icon: '🔰', desc: 'Garnison 50 % plus forte, et les pillards volent deux fois moins.' },
+      f_regen: { type: 'f', name: 'Fontaine noire', icon: '⛲', desc: 'Ton héros récupère sa vie 3 fois plus vite.' },
+    },
+    RELIC_TYPES: { h: 'Héros', m: 'Serviteurs', f: 'Forteresse' },
+    HERO_HARVEST: 2,
     // Emplacements des bâtiments dans la forteresse (repère local, +z vers le centre du monde).
     PLOTS: { throne: [0, -15], storage: [-14, -3], barracks: [14, -3], altar: [-11, 9], workshop: [11, 9] },
     FORT: { wall: 24, spawn: [0, 8], zone: 36 },
@@ -92,6 +123,7 @@
       for (const k in base) out[k] = Math.round(base[k] * Math.pow(1.9, L) / 5) * 5;
       return out;
     },
+    craftCost(id, tier) { const base = DATA.CRAFTS[id].cost, out = {}; for (const k in base) out[k] = Math.round(base[k] * Math.pow(1.8, tier) / 5) * 5; return out; },
     xpNeed(lvl) { return Math.round(40 * Math.pow(lvl, 1.6)); },
     cap(b) { return 250 + 300 * (b.storage || 0); },
     minionCap(b) { return 4 + 3 * (b.barracks || 0); },

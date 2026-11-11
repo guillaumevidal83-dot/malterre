@@ -2,7 +2,7 @@
 'use strict';
 (function () {
   const $ = id => document.getElementById(id);
-  const D = DATA, TAU = Math.PI * 2;
+  const D = DATA, TAU = Math.PI * 2, WR = DATA.WORLD.radius;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -56,6 +56,7 @@
       case 'me': S.me = m; updHero(); updRes(); if (S.sheet) renderSheet(); break;
       case 'roster': S.roster.clear(); for (const p of m.r) S.roster.set(p.id, p); $('online').textContent = m.r.length + ' en ligne'; break;
       case 'fort': S.forts[m.f.s] = stamp(m.f); S.zoneKey = ''; if (S.sheet) renderSheet(); break;
+      case 'relic': { const r = D.RELICS[m.id]; modal('<div style="font-size:54px">' + r.icon + '</div><h2>Relique trouvée !</h2><p class="gain">' + esc(r.name) + '</p><p>' + esc(r.desc) + '</p><p>' + (m.auto ? 'Elle est équipée (' + D.RELIC_TYPES[r.type] + ').' : 'Équipe-la depuis l\'onglet Héros.') + '</p><button class="btn gold wide" id="modalOk">Parfait</button>'); Sound.play('levelup'); Sound.vibrate([50, 50, 50, 50, 200]); break; }
       case 'alert': toast(m.m, 'err'); Sound.play('alert'); Sound.vibrate([80, 60, 80, 60, 160]); break;
       case 'lootc': S.lootEnd = S.time + m.s; S.lootDur = m.s; Sound.play('summon'); break;
       case 'lootx': S.lootEnd = 0; if (m.m) { toast(m.m, 'err'); Sound.play('error'); } break;
@@ -80,7 +81,7 @@
   const stamp = f => { f.shEnd = f.sh > 0 ? S.time + f.sh : 0; return f; };
   const fmtDur = s => s >= 3600 ? Math.floor(s / 3600) + ' h ' + Math.floor(s % 3600 / 60) + ' min' : Math.max(1, Math.ceil(s / 60)) + ' min';
   function onWelcome(m) {
-    S.id = m.id; S.x = m.x; S.z = m.z; S.r = m.r; S.camYaw = m.r; S.cfg = m.cfg; S.dead = false;
+    S.wcls = m.cls; S.id = m.id; S.x = m.x; S.z = m.z; S.r = m.r; S.camYaw = m.r; S.cfg = m.cfg; S.dead = false;
     S.nodes = m.nodes.map(n => ({ id: n[0], type: n[1], x: n[2], z: n[3], rich: n[4], vis: n[5], variant: n[0] % 3, rot: (n[0] * 2.399) % TAU, s: 0.85 + ((n[0] * 7) % 10) / 28 }));
     S.forts = m.forts.map(stamp); S.lootEnd = 0; S.zoneKey = ''; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
     store.set('malterre_name', m.name); store.set('malterre_tok', m.tok);
@@ -130,7 +131,7 @@
       const tx = tg.id === S.id ? S.x : tg.x, tz = tg.id === S.id ? S.z : tg.z;
       tg.flash = 1;
       const mine = isMine(src), onMe = tg.id === S.id;
-      const hgt = (Models.get(modelOf(tg)).h * Models.get(modelOf(tg)).s) + 0.3;
+      const hgt = Models.get(modelOf(tg)).h * mscale(tg) + 0.3;
       floatText(tx, hgt, tz, (crit ? '💥' : '') + dmg, mine ? (crit ? '#ffd34d' : '#ffffff') : onMe ? '#ff5a4d' : tg.o === S.id ? '#ff9d8a' : '#c9c4d6', crit ? 20 : mine || onMe ? 16 : 12);
       if (src) {
         src.atkT = S.time;
@@ -152,6 +153,7 @@
       const name = ev[1], x = ev[2], z = ev[3], r = ev[4], src = S.ents.get(ev[5]), mine = ev[5] === S.id, near = dme(x, z) < 22;
       if (src) src.atkT = S.time; if (mine) S.atkT = S.time;
       if (name === 'swing') sfx('swing', x, z);
+      else if (name === 'chop') { burst(x, 1.2, z, ev[6] === 'wood' ? [0.5, 0.34, 0.2] : ev[6] === 'gold' ? [1.6, 1.2, 0.3] : [0.6, 0.6, 0.62], 6, 3); sfx('hit', x, z); if (mine) { S.r = Math.atan2(x - S.x, z - S.z); floatText(x, 2.6, z, '+' + ev[4] + ' ' + resIcon(ev[6]), '#ffe29a', 15, 1); Sound.vibrate(10); } }
       else if (name === 'bolt') { S.projs.push({ x0: x, y0: 2.4, z0: z, x1: ev[6], y1: 1.2, z1: ev[7], t: 0, dur: 0.22, col: [0.9, 0.4, 2.2], size: 0.6, boom: [0.8, 0.4, 2] }); sfx('bigbolt', x, z); if (mine) Sound.vibrate([15, 20, 40]); }
       else if (name === 'nova') { ring(x, z, 0.5, r, 0.5, [0.25, 0.7, 2.2]); ring(x, z, 0.2, r * 0.7, 0.65, [0.5, 1.0, 2.4]); for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; part(x + Math.sin(a) * 1.5, 0.6, z + Math.cos(a) * 1.5, Math.sin(a) * 13, 1.5, Math.cos(a) * 13, 0.55, 0.3, [1.3, 1.7, 2.3], 2); } sfx('nova', x, z); if (mine) Sound.vibrate([20, 30, 50]); }
       else if (name === 'raise') { ring(x, z, 0.5, 4.5, 0.8, [0.4, 1.9, 0.8]); for (let i = 0; i < 24; i++) part(x + (Math.random() - 0.5) * 6, 0.1, z + (Math.random() - 0.5) * 6, 0, 3 + Math.random() * 4, 0, 0.9, 0.25, [0.4, 1.9, 0.8], -1); sfx('raise', x, z); if (mine) Sound.vibrate([30, 40, 30, 40, 60]); }
@@ -244,7 +246,8 @@
   $('sheetClose').addEventListener('click', () => toggleSheet());
 
   /* ================= Interface ================= */
-  const resIcon = r => r === 'spec' && S.me ? D.CLASSES[S.me.cls].specIcon : D.RES[r].icon;
+  const myCls = () => S.me ? S.me.cls : S.wcls;
+  const resIcon = r => r === 'spec' && myCls() ? D.CLASSES[myCls()].specIcon : D.RES[r].icon;
   const resName = r => r === 'spec' && S.me ? D.CLASSES[S.me.cls].spec : D.RES[r].name;
   let lastRes = {};
   function updHero() {
@@ -290,7 +293,7 @@
     if (S.tab === 'fort') {
       const mf = S.forts[me.slot], shLeft = mf && mf.shEnd > S.time ? mf.shEnd - S.time : 0;
       h += '<div class="card"><div class="big">' + (shLeft ? '🛡️' : '⚠️') + '</div><div class="mid"><h3>' + (shLeft ? 'Forteresse protégée' : 'Forteresse exposée') + '</h3><p>' + (shLeft ? 'Personne ne peut te piller pendant encore ' + fmtDur(shLeft) + '. Si tu pilles quelqu\'un, ta protection tombe.' : 'Un autre seigneur peut voler ' + Math.round(S.cfg.raidLoot * 100) + ' % de ton stock. Laisse des serviteurs en Garde pour la défendre.') + '</p></div></div>';
-      h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + (me.cls === 'lich' ? 'des os' : 'de la ferraille') + '.</div>';
+      h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + (me.cls === 'lich' ? 'des os' : 'de la ferraille') + '. Ton héros récolte aussi : frappe un arbre, un rocher ou un filon avec le bouton d\'attaque.</div>';
       for (const b in D.BUILDINGS) {
         const lvl = me.b[b] || 0, c = canBuild(b), icon = b === 'barracks' && me.cls === 'goblin' ? '⛺' : b === 'altar' && me.cls === 'goblin' ? '🗿' : BICON[b];
         h += '<div class="card"><div class="big">' + icon + '</div><div class="mid"><h3>' + esc(cls.bnames[b]) + '<em>' + (lvl ? 'niv. ' + lvl : 'à construire') + '</em></h3><p>' + D.BUILDINGS[b].desc + '</p>' +
@@ -308,8 +311,10 @@
         const n = me.minions.filter(m => m[0] === mt).length;
         h += '<div class="card"><div class="big">' + MICON[mt] + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p>Vie ' + def.hp + ' · Dégâts ' + def.dmg + ' · ' + (def.work >= 1 ? 'bon ouvrier' : 'bon combattant') + '</p>' + costHtml(def.cost) +
           (locked ? '<p style="color:var(--bad)">' + esc(cls.bnames.barracks) + ' niveau ' + def.unlock + ' requis</p>' : full ? '<p style="color:var(--bad)">Limite atteinte : améliore ' + esc(cls.bnames.barracks) + '</p>' : '') + '</div>' +
-          '<button class="btn' + (ok ? ' gold' : '') + '" data-act="summon" data-arg="' + mt + '"' + (ok ? '' : ' disabled') + '>Invoquer</button></div>';
+          '<div class="side"><button class="btn' + (ok ? ' gold' : '') + '" data-act="summon" data-arg="' + mt + '"' + (ok ? '' : ' disabled') + '>Invoquer</button>' +
+          (n ? '<button class="btn red small" data-act="dismiss" data-arg="' + mt + '">Sacrifier</button>' : '') + '</div></div>';
       }
+      h += '<div class="note">Sacrifier un serviteur rend ' + Math.round((S.cfg.refund || 0) * 100) + ' % de son coût et libère une place. Celui qui garde la forteresse part en premier.</div>';
       h += '<div class="sec">Répartir les tâches</div>';
       const free = me.minions.filter(m => m[1] === 'guard').length;
       for (const r of ['wood', 'stone', 'gold', 'spec', 'escort']) {
@@ -319,8 +324,31 @@
       }
       h += '<div class="role"><span style="font-size:20px">🛡️</span><div class="n">Garde de la forteresse<small>Disponibles pour une autre tâche</small></div><b>' + free + '</b></div>';
       h += '<div class="note" style="margin-top:8px">' + alive + ' serviteur(s) actif(s). Un serviteur vaincu revient après ' + S.cfg.minionRevive + ' s.</div>';
+    } else if (S.tab === 'craft') {
+      const wl = me.b.workshop || 0;
+      if (!wl) h += '<div class="card"><div class="big">⚒️</div><div class="mid"><h3>' + esc(cls.bnames.workshop) + ' à construire</h3><p>Construis ce bâtiment dans l\'onglet Forteresse pour fabriquer de l\'équipement pour ton héros et tes serviteurs.</p></div></div>';
+      else h += '<div class="note">' + esc(cls.bnames.workshop) + ' niveau ' + wl + ' : tu peux fabriquer jusqu\'au palier ' + wl + '. Chaque palier est permanent.</div>';
+      for (const who of ['hero', 'minion']) {
+        h += '<div class="sec">' + (who === 'hero' ? 'Équipement du héros' : 'Équipement des serviteurs') + '</div>';
+        for (const id in D.CRAFTS) {
+          const c = D.CRAFTS[id]; if (c.who !== who) continue;
+          const tier = (me.craft || {})[id] || 0, max = tier >= D.CRAFT_MAX, cost = max ? null : D.craftCost(id, tier);
+          let ok = !max && tier < wl; if (cost) for (const r in cost) if ((me.res[r] || 0) < cost[r]) ok = false;
+          h += '<div class="card"><div class="big">' + c.icon + '</div><div class="mid"><h3>' + c.name + '<em class="pips">' + '●'.repeat(tier) + '○'.repeat(D.CRAFT_MAX - tier) + '</em></h3><p>' + c.desc + '</p>' + (cost ? costHtml(cost) : '') +
+            (!max && tier >= wl ? '<p style="color:var(--bad)">' + esc(cls.bnames.workshop) + ' niveau ' + (tier + 1) + ' requis</p>' : '') + '</div>' +
+            (max ? '<span class="note">MAX</span>' : '<button class="btn' + (ok ? ' gold' : '') + '" data-act="craft" data-arg="' + id + '"' + (ok ? '' : ' disabled') + '>Fabriquer</button>') + '</div>';
+        }
+      }
     } else if (S.tab === 'hero') {
       h += '<div class="stat"><div>' + cls.title + '<b>' + ICON[me.cls] + ' ' + cls.name + ' niv. ' + me.lvl + '</b></div><div>Expérience<b>' + me.xp + ' / ' + me.need + '</b></div><div>Vie<b>' + S.mh + '</b></div><div>Dégâts<b>' + me.dmg + '</b></div><div>Monstres vaincus<b>' + me.kills + '</b></div><div>Royaume<b>n° ' + (me.slot + 1) + '</b></div></div>';
+      const rel = me.relics || [], eq = me.eq || {};
+      h += '<div class="sec">Reliques (' + rel.length + ' / ' + Object.keys(D.RELICS).length + ')</div>';
+      if (!rel.length) h += '<div class="note">Aucune relique pour l\'instant. Les élites et les boss en lâchent parfois : Troll, Mère des araignées, Seigneur de guerre orc, Gardien de Malterre.</div>';
+      for (const ty in D.RELIC_TYPES) {
+        const mine = rel.filter(id => D.RELICS[id].type === ty); if (!mine.length) continue;
+        h += '<div class="note" style="margin:8px 2px 4px">' + D.RELIC_TYPES[ty] + ' — une seule active</div>';
+        for (const id of mine) { const r = D.RELICS[id], on = eq[ty] === id; h += '<div class="card' + (on ? ' on' : '') + '"><div class="big">' + r.icon + '</div><div class="mid"><h3>' + esc(r.name) + (on ? '<em>active</em>' : '') + '</h3><p>' + esc(r.desc) + '</p></div><button class="btn' + (on ? '' : ' gold') + '" data-act="equip" data-arg="' + id + '">' + (on ? 'Retirer' : 'Équiper') + '</button></div>'; }
+      }
       h += '<div class="sec">Compétences</div>';
       for (const sk of cls.skills) h += '<div class="card"><div class="big">' + sk.icon + '</div><div class="mid"><h3>' + sk.name + '<em>' + sk.cd + ' s</em></h3><p>' + sk.desc + '</p></div></div>';
       h += '<div class="sec">Seigneurs en ligne</div>';
@@ -343,6 +371,9 @@
     Sound.play('click'); Sound.vibrate(10);
     if (act === 'build') send({ t: 'build', b: arg });
     else if (act === 'summon') send({ t: 'summon', m: arg });
+    else if (act === 'dismiss') send({ t: 'dismiss', m: arg });
+    else if (act === 'craft') send({ t: 'craft', c: arg });
+    else if (act === 'equip') send({ t: 'equip', r: arg });
     else if (act === 'role') send({ t: 'role', r: arg, d: +b.dataset.d });
     else if (act === 'recall') { send({ t: 'recall' }); toggleSheet(); }
     else if (act === 'logout') { store.del('malterre_tok'); S.ws.close(); leaveGame(); }
@@ -382,7 +413,7 @@
       const l = fortLocal(f, S.x, S.z), d = Math.hypot(l[0], l[1]);
       if (Math.abs(d - 24) < 1.1 && Math.abs(Math.atan2(l[0], l[1])) > 0.2) { const nd = d < 24 ? 22.9 : 25.1, w = fortWorld(f, l[0] / d * nd, l[1] / d * nd); S.x = w[0]; S.z = w[1]; }
     }
-    const r = Math.hypot(S.x, S.z); if (r > 286) { S.x *= 286 / r; S.z *= 286 / r; }
+    const r = Math.hypot(S.x, S.z); if (r > WR - 4) { S.x *= (WR - 4) / r; S.z *= (WR - 4) / r; }
   }
 
   function update(dt) {
@@ -395,7 +426,7 @@
     if (len > 0.15 && !S.dead) {
       const n = Math.hypot(mx, my); mx /= n; my /= n;
       const fx = Math.sin(S.camYaw), fz = Math.cos(S.camYaw), dx = fx * my - fz * mx, dz = fz * my + fx * mx;
-      S.x += dx * cls.speed * len * dt; S.z += dz * cls.speed * len * dt;
+      const spd = cls.speed * (me.speed || 1); S.x += dx * spd * len * dt; S.z += dz * spd * len * dt;
       if (S.time - S.atkT > 0.25) S.r = Math.atan2(dx, dz);
       S.moving = true;
       collide();
@@ -452,10 +483,11 @@
 
   /* ================= Rendu ================= */
   const MM = M4.create(), PM = M4.create(), TINT = [1, 1, 1];
-  const modelOf = e => e.k === 0 ? (e.t === 'goblin' ? 'goblin_king' : 'lich') : e.t;
+  const modelOf = e => e.k === 0 ? (e.t === 'goblin' ? 'goblin_king' : 'lich') : e.k === 2 ? (D.MOBS[e.t].model || e.t) : e.t;
+  const mscale = e => Models.get(modelOf(e)).s * (e.k === 2 ? (D.MOBS[e.t].scale || 1) : 1);
   function drawEnt(e, x, z, shadows) {
     const mdl = Models.get(modelOf(e)), t = S.time;
-    const grow = Math.min(1, (t - e.born) * 4 + 0.2), s = mdl.s * grow;
+    const grow = Math.min(1, (t - e.born) * 4 + 0.2), s = mscale(e) * grow;
     const walk = e.a === 1, sw = walk ? Math.sin(t * 10 + e.ph) : 0, atk = Math.max(0, 1 - (t - e.atkT) / 0.32), work = e.a === 2 && atk <= 0;
     const bob = mdl.kind === 'float' ? 0.14 + Math.sin(t * 2.2 + e.ph) * 0.09 : walk ? Math.abs(sw) * 0.06 : 0;
     const lunge = mdl.kind === 'quad' || mdl.kind === 'spider' ? Math.sin(atk * Math.PI) * 0.7 : 0;
@@ -537,7 +569,7 @@
       const hurt = e.hp < e.mh, named = e.k === 0 || (mob && (mob.elite || mob.boss));
       if (!hurt && !named) continue;
       if (e.id === S.id) continue;
-      const p = eng.project(e.x, mdl.h * mdl.s + 0.5, e.z); if (!p) continue;
+      const p = eng.project(e.x, mdl.h * mscale(e) + 0.5, e.z); if (!p) continue;
       const bw = clamp(520 / p[2], 22, 70) * (mob && mob.rad > 1.2 ? 1.6 : 1), bh = 5;
       if (hurt && e.id !== S.id) {
         octx.fillStyle = 'rgba(0,0,0,.65)'; octx.fillRect(p[0] - bw / 2 - 1, p[1] - 1, bw + 2, bh + 2);
@@ -565,11 +597,11 @@
 
   const mm = $('minimap'), mctx = mm.getContext('2d');
   function minimap() {
-    const c = mctx, W = 220, R = 104, k = R / 295, cx = W / 2, cy = W / 2, P = (x, z) => [cx + x * k, cy - z * k];
+    const c = mctx, W = 220, R = 104, k = R / (WR + 5), cx = W / 2, cy = W / 2, P = (x, z) => [cx + x * k, cy - z * k];
     c.clearRect(0, 0, W, W);
-    c.fillStyle = '#4f7a3c'; c.beginPath(); c.arc(cx, cy, 290 * k, 0, TAU); c.fill();
-    c.fillStyle = '#2f5234'; c.beginPath(); c.arc(cx, cy, 150 * k, 0, TAU); c.fill();
-    c.fillStyle = '#4b3a47'; c.beginPath(); c.arc(cx, cy, 75 * k, 0, TAU); c.fill();
+    c.fillStyle = '#4f7a3c'; c.beginPath(); c.arc(cx, cy, WR * k, 0, TAU); c.fill();
+    c.fillStyle = '#2f5234'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier1 * k, 0, TAU); c.fill();
+    c.fillStyle = '#4b3a47'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier2 * k, 0, TAU); c.fill();
     for (const f of S.forts) { const p = P(f.x, f.z); c.fillStyle = f.o ? D.COLORS[f.s % 8] : 'rgba(255,255,255,.25)'; c.fillRect(p[0] - 6, p[1] - 6, 12, 12); if (S.me && f.s === S.me.slot) { c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(p[0] - 8, p[1] - 8, 16, 16); } }
     for (const e of S.ents.values()) {
       if (e.id === S.id) continue;

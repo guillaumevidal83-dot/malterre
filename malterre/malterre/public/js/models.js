@@ -155,14 +155,14 @@ const Models = (function () {
 
   function terrain() {
     return single('terrain', g => {
-      const R = rng(4242), v = g.v, S = 10, RAD = 300;
+      const WD = DATA.WORLD, R = rng(4242), v = g.v, S = 10, RAD = WD.radius + 10;
       const T = [[0.33, 0.5, 0.25], [0.19, 0.33, 0.2], [0.31, 0.27, 0.29], [0.72, 0.66, 0.46]];
       const noise = (x, z) => Math.sin(x * 0.071 + 1.3) * Math.cos(z * 0.063) * 0.5 + Math.sin((x + z) * 0.19) * 0.25;
       const col = (x, z) => {
         const r = Math.hypot(x, z) + noise(x, z) * 14, n = 0.9 + 0.2 * (0.5 + 0.5 * Math.sin(x * 0.37 + z * 0.21) * Math.cos(z * 0.29 - x * 0.11));
         const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
         const sm = (e0, e1) => Math.max(0, Math.min(1, (r - e0) / (e1 - e0)));
-        let c = mix(T[2], T[1], sm(65, 85)); c = mix(c, T[0], sm(140, 160)); c = mix(c, T[3], sm(281, 289));
+        let c = mix(T[2], T[1], sm(WD.tier2 - 10, WD.tier2 + 10)); c = mix(c, T[0], sm(WD.tier1 - 10, WD.tier1 + 10)); c = mix(c, T[3], sm(WD.radius - 9, WD.radius - 1));
         return [c[0] * n, c[1] * n, c[2] * n];
       };
       const put = (x, z) => { const c = col(x, z); v.push(x, 0, z, 0, 1, 0, c[0], c[1], c[2]); };
@@ -171,14 +171,14 @@ const Models = (function () {
         put(x, z); put(x, z + S); put(x + S, z + S); put(x, z); put(x + S, z + S); put(x + S, z);
       }
       // Touffes d'herbe, cailloux et fleurs.
-      for (let i = 0; i < 1700; i++) {
-        const a = R() * TAU, r = Math.sqrt(R()) * 284, x = Math.sin(a) * r, z = Math.cos(a) * r, c = col(x, z), k = R();
-        if (r < 75) g.at(x, 0.12, z, R() * 3).box(0.3 + R() * 0.5, 0.25, 0.3 + R() * 0.4, [0.4, 0.38, 0.4]);
+      for (let i = 0; i < 3400; i++) {
+        const a = R() * TAU, r = Math.sqrt(R()) * (WD.radius - 6), x = Math.sin(a) * r, z = Math.cos(a) * r, c = col(x, z), k = R();
+        if (r < WD.tier2) g.at(x, 0.12, z, R() * 3).box(0.3 + R() * 0.5, 0.25, 0.3 + R() * 0.4, [0.4, 0.38, 0.4]);
         else if (k < 0.75) g.at(x, 0, z, R() * 3).cyl(0.3, 0, 0.5 + R() * 0.4, 3, mul(c, 1.25));
         else if (k < 0.9) g.at(x, 0.1, z, R() * 3).box(0.4, 0.22, 0.35, [0.55, 0.55, 0.57]);
         else { g.at(x, 0, z).cyl(0.04, 0.04, 0.4, 3, [0.3, 0.5, 0.2]); g.at(x, 0.42, z).box(0.2, 0.12, 0.2, [[1, 0.85, 0.3], [0.95, 0.5, 0.7], [0.9, 0.9, 1]][i % 3]); }
       }
-      g.at(0, -0.5, 0).disc(900, 16, [0.1, 0.19, 0.3]);
+      g.at(0, -0.5, 0).disc(1400, 16, [0.1, 0.19, 0.3]);
     });
   }
 
