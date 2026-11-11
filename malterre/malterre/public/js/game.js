@@ -19,7 +19,7 @@
     camYaw: 0, camPitch: 0.52, camDist: 15, lastDrag: -9,
     cds: [0, 0, 0], cdMax: [1, 1, 1], nextAtk: 0, atkHeld: false, recallAt: 0,
     shake: 0, floats: [], parts: [], rings: [], projs: [], time: 0, tier: 0, zoneKey: '', seen: 0, sfxBudget: 0,
-    quality: store.get('malterre_q') || 'med', tab: 'fort', sheet: false, deathAt: 0, lastSend: 0, lastSent: '', pending: null,
+    lootEnd: 0, lootDur: 1, quality: store.get('malterre_q') || 'med', tab: 'fort', sheet: false, deathAt: 0, lastSend: 0, lastSent: '', pending: null,
   };
   const ICON = { lich: '💀', goblin: '👺' };
   const BICON = { throne: '👑', storage: '📦', barracks: '⚰️', altar: '🔮', workshop: '⚒️' };
@@ -55,7 +55,11 @@
       case 's': onSnap(m); break;
       case 'me': S.me = m; updHero(); updRes(); if (S.sheet) renderSheet(); break;
       case 'roster': S.roster.clear(); for (const p of m.r) S.roster.set(p.id, p); $('online').textContent = m.r.length + ' en ligne'; break;
-      case 'fort': S.forts[m.f.s] = m.f; break;
+      case 'fort': S.forts[m.f.s] = stamp(m.f); S.zoneKey = ''; if (S.sheet) renderSheet(); break;
+      case 'alert': toast(m.m, 'err'); Sound.play('alert'); Sound.vibrate([80, 60, 80, 60, 160]); break;
+      case 'lootc': S.lootEnd = S.time + m.s; S.lootDur = m.s; Sound.play('summon'); break;
+      case 'lootx': S.lootEnd = 0; if (m.m) { toast(m.m, 'err'); Sound.play('error'); } break;
+      case 'looted': { S.lootEnd = 0; const g = Object.keys(m.got).filter(r => m.got[r] > 0).map(r => '+' + m.got[r] + ' ' + resIcon(r)).join('  '); toast('💰 Royaume de ' + m.from + ' pillé !  ' + (g || 'Ses coffres étaient vides.'), 'good'); Sound.play('levelup'); Sound.vibrate([40, 40, 40, 40, 150]); break; }
       case 'msg': toast(m.m); break;
       case 'err':
         if (m.login) { $('loginBtn').disabled = false; if (!m.silent) $('loginErr').textContent = m.m; else { store.del('malterre_tok'); } S.pending = null; if (S.inGame) leaveGame(); }
@@ -73,18 +77,26 @@
     }
   }
 
+  const stamp = f => { f.shEnd = f.sh > 0 ? S.time + f.sh : 0; return f; };
+  const fmtDur = s => s >= 3600 ? Math.floor(s / 3600) + ' h ' + Math.floor(s % 3600 / 60) + ' min' : Math.max(1, Math.ceil(s / 60)) + ' min';
   function onWelcome(m) {
     S.id = m.id; S.x = m.x; S.z = m.z; S.r = m.r; S.camYaw = m.r; S.cfg = m.cfg; S.dead = false;
     S.nodes = m.nodes.map(n => ({ id: n[0], type: n[1], x: n[2], z: n[3], rich: n[4], vis: n[5], variant: n[0] % 3, rot: (n[0] * 2.399) % TAU, s: 0.85 + ((n[0] * 7) % 10) / 28 }));
-    S.forts = m.forts; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
+    S.forts = m.forts.map(stamp); S.lootEnd = 0; S.zoneKey = ''; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
     store.set('malterre_name', m.name); store.set('malterre_tok', m.tok);
     S.pending = null; S.inGame = true;
     $('login').hidden = true; $('hud').hidden = false; $('net').hidden = true; $('deathScreen').hidden = true;
+    let html = '';
+    if (m.reports) for (const r of m.reports) {
+      const lost = r.lost ? Object.keys(r.lost).filter(k => r.lost[k] > 0).map(k => '<div class="gain" style="color:var(--bad)">−' + r.lost[k] + ' ' + resIcon(k) + '</div>').join('') : '';
+      html += '<h2>⚔️ Raid de ' + esc(r.by) + '</h2>' + (r.lost ? (lost || '<p>Il est reparti les mains vides.</p>') : '<p>Il n\'a pas réussi à piller ta réserve.</p>') + (r.down ? '<p>' + r.down + ' serviteur(s) de ta garnison mis hors de combat.</p>' : '');
+    }
     if (m.offline) {
       const o = m.offline, h = Math.floor(o.sec / 3600), mn = Math.floor(o.sec % 3600 / 60);
       const lines = Object.keys(o.got).map(r => '<div class="gain">+' + o.got[r] + ' ' + resIcon(r) + '</div>').join('');
-      modal('<h2>Pendant ton absence</h2><p>' + (h ? h + ' h ' : '') + mn + ' min se sont écoulées.</p>' + (lines || '<p>Tes serviteurs n\'ont rien rapporté (aucun ouvrier, ou stock plein).</p>') + '<button class="btn gold wide" id="modalOk">Reprendre</button>');
+      html += '<h2>Pendant ton absence</h2><p>' + (h ? h + ' h ' : '') + mn + ' min se sont écoulées.</p>' + (lines || '<p>Tes serviteurs n\'ont rien rapporté (aucun ouvrier, ou stock plein).</p>');
     }
+    if (html) modal(html + '<button class="btn gold wide" id="modalOk">Reprendre</button>');
   }
   function leaveGame() {
     S.inGame = false; S.sheet = false;
@@ -148,6 +160,7 @@
       else if (name === 'warcry') { ring(x, z, 1, r, 0.7, [2.2, 0.5, 0.3]); ring(x, z, 0.5, r * 0.6, 0.9, [2.2, 1.2, 0.3]); sfx('warcry', x, z); if (mine) Sound.vibrate([40, 40, 40, 40, 120]); }
       else if (name === 'slam') { ring(x, z, 1, r, 0.5, [2, 0.3, 0.2]); burst(x, 0.4, z, [0.4, 0.36, 0.34], 40, 10); sfx('slam', x, z); if (dme(x, z) < 40) { S.shake = Math.max(S.shake, 0.9); Sound.vibrate([90, 40, 90]); } }
       else if (name === 'build') { ring(x, z, 1, 7, 0.9, [2.2, 1.7, 0.5]); burst(x, 0.5, z, [0.7, 0.62, 0.5], 30, 6); for (let i = 0; i < 16; i++) part(x + (Math.random() - 0.5) * 6, 0.2, z + (Math.random() - 0.5) * 6, 0, 4 + Math.random() * 5, 0, 1.1, 0.25, [2.2, 1.7, 0.5], -0.5); sfx('build', x, z); if (mine) Sound.vibrate([30, 60, 30, 60, 120]); }
+      else if (name === 'loot') { ring(x, z, 1, 8, 1, [2.4, 1.8, 0.4]); burst(x, 1, z, [2.4, 1.8, 0.4], 40, 8); sfx('build', x, z); }
       else if (name === 'summon') { ring(x, z, 0.3, 2.6, 0.6, [0.5, 1.8, 0.9]); burst(x, 1, z, [0.5, 1.8, 0.9], 14, 3); sfx('summon', x, z); if (mine) Sound.vibrate(30); }
     } else if (k === 'lt') {
       const me = S.me, spec = me ? D.CLASSES[me.cls].specIcon : '✨';
@@ -226,6 +239,7 @@
     send({ t: 'sk', i });
   }
   for (let i = 0; i < 3; i++) $('sk' + i).addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); skill(i); });
+  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.lootEnd <= S.time) send({ t: 'loot' }); });
   $('btnMenu').addEventListener('click', () => { Sound.init(); toggleSheet(); });
   $('sheetClose').addEventListener('click', () => toggleSheet());
 
@@ -274,6 +288,8 @@
     for (const b of $('tabs').children) b.classList.toggle('on', b.dataset.tab === S.tab);
     let h = '';
     if (S.tab === 'fort') {
+      const mf = S.forts[me.slot], shLeft = mf && mf.shEnd > S.time ? mf.shEnd - S.time : 0;
+      h += '<div class="card"><div class="big">' + (shLeft ? '🛡️' : '⚠️') + '</div><div class="mid"><h3>' + (shLeft ? 'Forteresse protégée' : 'Forteresse exposée') + '</h3><p>' + (shLeft ? 'Personne ne peut te piller pendant encore ' + fmtDur(shLeft) + '. Si tu pilles quelqu\'un, ta protection tombe.' : 'Un autre seigneur peut voler ' + Math.round(S.cfg.raidLoot * 100) + ' % de ton stock. Laisse des serviteurs en Garde pour la défendre.') + '</p></div></div>';
       h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + (me.cls === 'lich' ? 'des os' : 'de la ferraille') + '.</div>';
       for (const b in D.BUILDINGS) {
         const lvl = me.b[b] || 0, c = canBuild(b), icon = b === 'barracks' && me.cls === 'goblin' ? '⛺' : b === 'altar' && me.cls === 'goblin' ? '🗿' : BICON[b];
@@ -412,13 +428,19 @@
     // Zone et ambiance.
     const r = Math.hypot(S.x, S.z), tier = r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
     let zk = 'z' + tier, title = ZONES[tier], sub = ZSUB[tier];
-    for (const f of S.forts) if (Math.hypot(f.x - S.x, f.z - S.z) < 25) { zk = 'f' + f.s + (f.o || ''); title = f.o ? (f.s === me.slot ? 'Ta forteresse' : 'Royaume de ' + f.o) : 'Terre sans maître'; sub = f.o ? D.CLASSES[f.c].name + ' niv. ' + f.l : 'Un royaume peut être fondé ici'; }
+    for (const f of S.forts) if (Math.hypot(f.x - S.x, f.z - S.z) < 25) { const shd = f.shEnd > S.time; zk = 'f' + f.s + (f.o || '') + (shd ? 's' : ''); title = f.o ? (f.s === me.slot ? 'Ta forteresse' : 'Royaume de ' + f.o) : 'Terre sans maître'; sub = f.o ? D.CLASSES[f.c].name + ' niv. ' + f.l + (shd ? ' · 🛡️ protégé encore ' + fmtDur(f.shEnd - S.time) : f.s === me.slot ? ' · ⚠️ exposée aux raids' : ' · ⚔️ pillage possible') : 'Un royaume peut être fondé ici'; }
     if (zk !== S.zoneKey) { S.zoneKey = zk; const z = $('zone'); z.innerHTML = esc(title) + '<small>' + esc(sub) + '</small>'; z.style.opacity = 1; clearTimeout(S.zoneT); S.zoneT = setTimeout(() => { z.style.opacity = 0; }, 2600); }
     if (tier !== S.tier) { S.tier = tier; Sound.setTier(tier); }
     const tg = SKY[tier], kk = Math.min(1, dt * 0.8);
     for (const key of ['fog', 'amb', 'sun']) for (let i = 0; i < 3; i++) sky[key][i] = lerp(sky[key][i], tg[key][i], kk);
     sky.near = lerp(sky.near, tg.near, kk); sky.far = lerp(sky.far, tg.far, kk);
 
+    // Bouton de pillage : près de la réserve d'un royaume ennemi non protégé.
+    let canLoot = false;
+    if (!S.dead) for (const f of S.forts) { if (!f.o || f.s === me.slot || f.shEnd > S.time) continue; const p = fortWorld(f, D.PLOTS.storage[0], D.PLOTS.storage[1]); if (Math.hypot(p[0] - S.x, p[1] - S.z) < 7.5) canLoot = true; }
+    const bl = $('btnLoot'), busy = S.lootEnd > S.time;
+    if (bl.hidden === canLoot) bl.hidden = !canLoot;
+    if (canLoot) { bl.classList.toggle('busy', busy); bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); bl.querySelector('small').textContent = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : 'Piller'; }
     // Temps de recharge.
     for (let i = 0; i < 3; i++) {
       const el = $('sk' + i), left = S.cds[i] - S.time, was = el.dataset.cd === '1';
@@ -481,7 +503,7 @@
     for (const e of S.ents.values()) {
       if (e.k === 0 && (e.fl & 16)) continue;
       drawEnt(e, e.x, e.z, shadows);
-      if (e.k === 2) { const d = dme(e.x, e.z) - (D.MOBS[e.t].rad || 0.8); if (d < range && d < tbest) { tbest = d; target = e; } }
+      if (e.k === 2 || (e.fl & 32)) { const d = dme(e.x, e.z) - (e.k === 2 ? D.MOBS[e.t].rad : 0.6); if (d < range && d < tbest) { tbest = d; target = e; } }
     }
     // Particules et projectiles (sans éclairage).
     const cube = Models.cube(), orb = Models.orb();
@@ -494,7 +516,8 @@
       M4.trs(MM, shadows[i], 0.06, shadows[i + 1], 0, shadows[i + 2], 1, shadows[i + 2]); eng.draw(disc, MM, [0, 0, 0], 0, 0.3, true);
       if (shadows[i + 3] >= 0) { const r = shadows[i + 2] * 1.5; M4.trs(MM, shadows[i], 0.08, shadows[i + 1], 0, r, 1, r); eng.draw(rg, MM, slotColor(shadows[i + 3]), 0, 0.75, true); }
     }
-    if (target && !S.dead) { const r = (D.MOBS[target.t].rad || 0.8) * 1.5 + 0.3 + Math.sin(S.time * 6) * 0.08; M4.trs(MM, target.x, 0.1, target.z, S.time, r, 1, r); eng.draw(rg, MM, [1.6, 0.25, 0.2], 0, 0.9, true); }
+    if (target && !S.dead) { const r = (target.k === 2 ? D.MOBS[target.t].rad : 0.7) * 1.5 + 0.3 + Math.sin(S.time * 6) * 0.08; M4.trs(MM, target.x, 0.1, target.z, S.time, r, 1, r); eng.draw(rg, MM, [1.6, 0.25, 0.2], 0, 0.9, true); }
+    for (const f of S.forts) if (f.o && f.shEnd > S.time && Math.hypot(f.x - S.x, f.z - S.z) < far + 26) { const rr = 25.6 + Math.sin(S.time * 2) * 0.25; M4.trs(MM, f.x, 0.14, f.z, 0, rr, 1, rr); eng.draw(rg, MM, [0.35, 0.75, 2.2], 0, 0.6, true); M4.trs(MM, f.x, 0.11, f.z, 0, rr, 1, rr); eng.draw(disc, MM, [0.35, 0.75, 2.2], 0, 0.07, true); }
     for (const r of S.rings) { const t = 1 - r.life / r.max, rad = lerp(r.r0, r.r1, 1 - (1 - t) * (1 - t)); M4.trs(MM, r.x, 0.12, r.z, 0, rad, 1, rad); eng.draw(rg, MM, r.col, 0, (1 - t) * 0.9, true); M4.trs(MM, r.x, 0.1, r.z, 0, rad, 1, rad); eng.draw(disc, MM, r.col, 0, (1 - t) * 0.16, true); }
     eng.setBlend(false);
     overlay();
@@ -518,7 +541,7 @@
       const bw = clamp(520 / p[2], 22, 70) * (mob && mob.rad > 1.2 ? 1.6 : 1), bh = 5;
       if (hurt && e.id !== S.id) {
         octx.fillStyle = 'rgba(0,0,0,.65)'; octx.fillRect(p[0] - bw / 2 - 1, p[1] - 1, bw + 2, bh + 2);
-        octx.fillStyle = e.k === 2 ? '#e0483c' : e.o === S.id ? '#58c97a' : '#5aa9e6'; octx.fillRect(p[0] - bw / 2, p[1], bw * clamp(e.hp / e.mh, 0, 1), bh);
+        octx.fillStyle = e.k === 2 || (e.fl & 32) ? '#e0483c' : e.o === S.id ? '#58c97a' : '#5aa9e6'; octx.fillRect(p[0] - bw / 2, p[1], bw * clamp(e.hp / e.mh, 0, 1), bh);
       }
       if (named && d < 45) {
         const ro = S.roster.get(e.id), label = e.k === 0 ? (ro ? ro.n + ' · ' + ro.l : '') : mob.name;
@@ -552,7 +575,8 @@
       if (e.id === S.id) continue;
       const p = P(e.x, e.z);
       if (e.k === 2) { const m = D.MOBS[e.t]; c.fillStyle = m.boss ? '#ffb347' : '#ff4d40'; const s = m.boss ? 8 : m.elite ? 5 : 3; c.fillRect(p[0] - s / 2, p[1] - s / 2, s, s); }
-      else if (e.k === 0) { c.fillStyle = '#fff'; c.beginPath(); c.arc(p[0], p[1], 4, 0, TAU); c.fill(); }
+      else if (e.k === 0) { c.fillStyle = (e.fl & 32) ? '#ff9a2e' : '#fff'; c.beginPath(); c.arc(p[0], p[1], 4, 0, TAU); c.fill(); }
+      else if (e.fl & 32) { c.fillStyle = '#ff9a2e'; c.fillRect(p[0] - 1.5, p[1] - 1.5, 3, 3); }
       else if (e.o === S.id) { c.fillStyle = '#9dffb4'; c.fillRect(p[0] - 1.5, p[1] - 1.5, 3, 3); }
     }
     const p = P(S.x, S.z);

@@ -1,13 +1,14 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.1.0',
+    VERSION: '0.2.0',
     WORLD: { radius: 290, fortRing: 215, slots: 8, tier1: 150, tier2: 75, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
       respawnMob: 90, respawnElite: 1200, respawnBoss: 14400,
       regenNode: 20, minionRevive: 60, playerRespawn: 6,
       xpMult: 1, lootMult: 1, offlineRate: 0.5, offlineMaxH: 12,
+      raidLoot: 0.25, raidShieldH: 4, newShieldH: 4, raidDown: 1800, lootTime: 8,
     },
     CONFIG_LABELS: {
       respawnMob: 'Réapparition des mobs (s)', respawnElite: 'Réapparition des élites (s)',
@@ -15,6 +16,8 @@
       minionRevive: 'Retour d\'un serviteur vaincu (s)', playerRespawn: 'Réapparition du héros (s)',
       xpMult: 'Multiplicateur d\'expérience', lootMult: 'Multiplicateur de butin',
       offlineRate: 'Rendement hors ligne (0 à 1)', offlineMaxH: 'Rattrapage maximum (heures)',
+      raidLoot: 'Part du stock volée par un pillage (0 à 1)', raidShieldH: 'Bouclier après un pillage (heures)', newShieldH: 'Bouclier d\'un nouveau royaume (heures)',
+      raidDown: 'Serviteur de garnison vaincu : indisponible (s)', lootTime: 'Durée du pillage (s)',
     },
     RES: {
       wood: { name: 'Bois', icon: '🪵' }, stone: { name: 'Pierre', icon: '🪨' },
@@ -82,7 +85,7 @@
     },
     // Emplacements des bâtiments dans la forteresse (repère local, +z vers le centre du monde).
     PLOTS: { throne: [0, -15], storage: [-14, -3], barracks: [14, -3], altar: [-11, 9], workshop: [11, 9] },
-    FORT: { wall: 24, spawn: [0, 8] },
+    FORT: { wall: 24, spawn: [0, 8], zone: 36 },
     // Formules communes.
     cost(b, lvl) {
       const base = DATA.BUILDINGS[b].cost, L = b === 'throne' ? lvl - 1 : lvl, out = {};

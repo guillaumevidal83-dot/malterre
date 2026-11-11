@@ -61,7 +61,8 @@
         <div><label class="s">✨ Spécial</label><input id="g_spec" type="number" value="0"></div>
         <div><label class="s">⭐ XP (si en ligne)</label><input id="g_xp" type="number" value="0"></div>
       </div>
-      <div class="rowb"><button id="giveBtn">Donner</button><small>Un nombre négatif retire. Le stock reste limité par l'entrepôt.</small></div>
+      <div class="rowb"><button id="giveBtn">Donner</button><input id="shH" type="number" value="4" min="0" style="width:70px"><button id="shBtn" class="ghost">Bouclier (heures, 0 = retirer)</button></div>
+      <div class="rowb" style="margin-top:6px"><small>Un nombre négatif retire. Le stock reste limité par l'entrepôt.</small></div>
     </div>
 
     <h2>Réglages du monde</h2>
@@ -110,7 +111,7 @@ function render() {
   $('players').innerHTML = st.players.length ? st.players.map(p =>
     '<tr><td><span class="dot' + (p.online ? ' on' : '') + '"></span><b>' + esc(p.name) + '</b><br><small>' + esc(p.cls) + ' · royaume ' + (p.slot + 1) + ' · ' + (p.online ? 'en ligne' : 'vu il y a ' + dur(p.ago)) + '</small></td>' +
     '<td>' + p.lvl + '</td><td>🪵 ' + p.res.wood + ' 🪨 ' + p.res.stone + '<br>🪙 ' + p.res.gold + ' ✨ ' + p.res.spec + '</td>' +
-    '<td><small>Trône ' + p.b.throne + ' · Stock ' + p.b.storage + ' · Caserne ' + p.b.barracks + '<br>Autel ' + p.b.altar + ' · Atelier ' + p.b.workshop + ' · ' + p.minions + ' serviteurs</small></td>' +
+    '<td><small>Trône ' + p.b.throne + ' · Stock ' + p.b.storage + ' · Caserne ' + p.b.barracks + '<br>Autel ' + p.b.altar + ' · Atelier ' + p.b.workshop + ' · ' + p.minions + ' serviteurs' + (p.shield ? '<br>🛡️ ' + dur(p.shield) : '<br>⚠️ exposé') + '</small></td>' +
     '<td><button class="red" data-del="' + esc(p.name) + '">Supprimer</button></td></tr>').join('') : '<tr><td colspan="5"><small>Aucun joueur pour l\'instant.</small></td></tr>';
   const sel = $('gName'), cur = sel.value;
   sel.innerHTML = st.players.map(p => '<option>' + esc(p.name) + '</option>').join(''); if (cur) sel.value = cur;
@@ -121,6 +122,7 @@ function render() {
 $('loginF').addEventListener('submit', e => { e.preventDefault(); pw = $('pw').value; api('state'); });
 $('players').addEventListener('click', e => { const n = e.target.dataset.del; if (n && confirm('Supprimer définitivement le royaume de ' + n + ' ?')) api('delPlayer', { name: n }); });
 $('giveBtn').addEventListener('click', () => api('give', { name: $('gName').value, xp: +$('g_xp').value, res: { wood: +$('g_wood').value, stone: +$('g_stone').value, gold: +$('g_gold').value, spec: +$('g_spec').value } }));
+$('shBtn').addEventListener('click', () => api('shield', { name: $('gName').value, hours: +$('shH').value }));
 $('cfg').addEventListener('input', () => { cfgTouched = true; });
 $('cfgBtn').addEventListener('click', async () => { const cfg = {}; for (const k in st.cfg) cfg[k] = +$('c_' + k).value; cfgTouched = false; await api('setCfg', { cfg }); });
 $('cfgDef').addEventListener('click', () => { for (const k in st.defaults) $('c_' + k).value = st.defaults[k]; cfgTouched = true; });

@@ -57,6 +57,9 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; letter-spacing: .08
 .skill .cd { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(0, 0, 0, .78) var(--p, 0%), transparent 0); pointer-events: none; }
 .skill b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 17px; text-shadow: 0 1px 3px #000; pointer-events: none; }
 .skill.ready { animation: ready .4s; } @keyframes ready { 40% { transform: scale(1.18); box-shadow: 0 0 16px 4px var(--acc); } }
+#btnLoot { position: absolute; left: 50%; bottom: calc(150px + var(--sab)); transform: translateX(-50%); width: 84px; height: 84px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f3cf6b, #8f6412); border: 3px solid #ffe9a8; color: #2a1c05; box-shadow: 0 0 22px 4px rgba(241, 199, 91, .6); display: grid; place-items: center; align-content: center; overflow: hidden; animation: pulse 1.4s infinite; }
+#btnLoot span { font-size: 30px; line-height: 1; } #btnLoot small { font-weight: 800; font-size: 12px; } #btnLoot i { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(255, 255, 255, .75) var(--p, 0%), transparent 0); pointer-events: none; mix-blend-mode: overlay; }
+#btnLoot.busy { animation: none; }
 #deathScreen { position: absolute; inset: 0; background: rgba(30, 0, 0, .55); display: grid; place-items: center; text-align: center; }
 #deathScreen h2 { font-size: 30px; color: #ff8d80; }
 
