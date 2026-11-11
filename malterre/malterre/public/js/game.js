@@ -319,7 +319,7 @@
           (n ? '<button class="btn red small" data-act="dismiss" data-arg="' + mt + '">Sacrifier</button>' : '') + '</div></div>';
       }
       h += '<div class="note">Sacrifier un serviteur rend ' + Math.round((S.cfg.refund || 0) * 100) + ' % de son coût et libère une place. Celui qui garde la forteresse part en premier.</div>';
-      h += '<div class="sec">Répartir les tâches</div>';
+      h += '<div class="sec">Répartition rapide</div>';
       const free = me.minions.filter(m => m[1] === 'guard').length;
       for (const r of ['wood', 'stone', 'gold', 'spec', 'escort']) {
         const n = me.minions.filter(m => m[1] === r).length, name = r === 'escort' ? 'Escorte' : 'Récolter : ' + resName(r), icon = r === 'escort' ? '⚔️' : resIcon(r);
@@ -327,6 +327,13 @@
           '<button class="step" data-act="role" data-arg="' + r + '" data-d="-1"' + (n ? '' : ' disabled') + '>−</button><b>' + n + '</b><button class="step" data-act="role" data-arg="' + r + '" data-d="1"' + (free ? '' : ' disabled') + '>+</button></div>';
       }
       h += '<div class="role"><span style="font-size:20px">🛡️</span><div class="n">Garde de la forteresse<small>Disponibles pour une autre tâche</small></div><b>' + free + '</b></div>';
+      h += '<div class="sec">Affecter chaque serviteur</div><div class="note">Choisis la tâche de chacun : envoie tes récolteurs experts aux ressources, tes tireurs et assaillants en escorte, tes défenseurs en garde.</div>';
+      const order = me.minions.map((m, i) => i).sort((a, b) => cls.minions.indexOf(me.minions[a][0]) - cls.minions.indexOf(me.minions[b][0]) || a - b);
+      for (const i of order) {
+        const m = me.minions[i], def = D.MINIONS[m[0]];
+        h += '<div class="role"><span style="font-size:20px">' + def.icon + '</span><div class="n">' + def.name + '<small>' + def.tag + (m[2] ? ' · hors de combat (' + m[2] + ' s)' : '') + '</small></div><select data-mi="' + i + '">' +
+          ['wood', 'stone', 'gold', 'spec', 'escort', 'guard'].map(r => '<option value="' + r + '"' + (m[1] === r ? ' selected' : '') + '>' + (r === 'escort' ? '⚔️ Escorte' : r === 'guard' ? '🛡️ Garde' : resIcon(r) + ' ' + resName(r)) + '</option>').join('') + '</select></div>';
+      }
       h += '<div class="note" style="margin-top:8px">' + alive + ' serviteur(s) actif(s). Un serviteur vaincu revient après ' + S.cfg.minionRevive + ' s.</div>';
     } else if (S.tab === 'craft') {
       const wl = me.b.workshop || 0;
@@ -384,6 +391,7 @@
     else if (act === 'logout') { store.del('malterre_tok'); S.ws.close(); leaveGame(); }
   });
   $('sheetBody').addEventListener('input', e => {
+    if (e.target.dataset.mi !== undefined) { send({ t: 'setrole', i: +e.target.dataset.mi, r: e.target.value }); Sound.play('click'); Sound.vibrate(10); return; }
     const k = e.target.dataset.set; if (!k) return;
     if (k === 'music' || k === 'sfx') Sound.volume(k, e.target.value / 100);
     else if (k === 'vib') { Sound.setVib(e.target.checked); Sound.vibrate(40); }

@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.5.1',
+    VERSION: '0.5.2',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {

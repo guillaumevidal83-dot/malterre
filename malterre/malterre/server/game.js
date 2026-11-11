@@ -574,6 +574,7 @@ class Game {
       case 'build': this.onBuild(sess, String(msg.b)); break;
       case 'summon': this.onSummon(sess, String(msg.m)); break;
       case 'role': this.onRole(sess, String(msg.r), msg.d > 0 ? 1 : -1); break;
+      case 'setrole': this.onSetRole(sess, msg.i | 0, String(msg.r)); break;
       case 'dismiss': this.onDismiss(sess, String(msg.m)); break;
       case 'recall': this.onRecall(sess); break;
       case 'loot': this.onLoot(sess); break;
@@ -818,6 +819,15 @@ class Game {
     sess.dirty = true;
   }
 
+  // Affecte un serviteur précis à une tâche (pour envoyer les spécialistes au bon endroit).
+  onSetRole(sess, i, role) {
+    const m = sess.rec.minions[i];
+    if (!m || !D.ROLES[role] || m.role === role) return;
+    m.role = role;
+    const e = sess.minions.find(x => x.rec === m);
+    if (e) { e.st = 'idle'; e.tgt = null; e.carry = 0; e.timer = 0; }
+    sess.dirty = true;
+  }
   onDismiss(sess, mt) {
     const rec = sess.rec;
     if (rec.minions.length <= 1) return this.send(sess, { t: 'err', m: 'Garde au moins un serviteur.' });
