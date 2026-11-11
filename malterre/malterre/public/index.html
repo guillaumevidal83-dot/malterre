@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Malterre — Seigneurs des Hordes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#120d1c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%91%91%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="ov"></canvas>
+
+<div id="hud" hidden>
+  <div id="vignette"></div>
+  <div id="joyZone"><div id="joyBase"><div id="joyKnob"></div></div></div>
+
+  <div id="topbar">
+    <div id="hero">
+      <div id="portrait"></div>
+      <div id="heroBars">
+        <div id="heroName"></div>
+        <div class="bar hp"><i id="hpFill"></i><span id="hpTxt"></span></div>
+        <div class="bar xp"><i id="xpFill"></i></div>
+      </div>
+    </div>
+    <div id="res"></div>
+  </div>
+
+  <div id="mapWrap"><canvas id="minimap" width="220" height="220"></canvas><div id="online"></div></div>
+  <button id="btnMenu" class="round" aria-label="Menu">🏰</button>
+  <div id="zone"></div>
+  <div id="toasts"></div>
+
+  <div id="actions">
+    <button class="skill" id="sk2"><span class="ic"></span><i class="cd"></i><b></b></button>
+    <button class="skill" id="sk1"><span class="ic"></span><i class="cd"></i><b></b></button>
+    <button class="skill" id="sk0"><span class="ic"></span><i class="cd"></i><b></b></button>
+    <button id="btnAtk" aria-label="Attaquer">⚔️</button>
+  </div>
+
+  <div id="deathScreen" hidden><div><h2>Tu es tombé</h2><p>Retour à la forteresse dans <b id="deathT">6</b> s</p></div></div>
+</div>
+
+<div id="sheet" hidden>
+  <div id="sheetHead">
+    <nav id="tabs">
+      <button data-tab="fort">🏰 Forteresse</button>
+      <button data-tab="minions">💀 Serviteurs</button>
+      <button data-tab="hero">⚔️ Héros</button>
+      <button data-tab="settings">⚙️ Réglages</button>
+    </nav>
+    <button id="sheetClose" aria-label="Fermer">✕</button>
+  </div>
+  <div id="sheetBody"></div>
+</div>
+
+<div id="modal" hidden><div id="modalBox"></div></div>
+
+<div id="login">
+  <div id="loginBox">
+    <div class="crest">👑</div>
+    <h1>MALTERRE</h1>
+    <p class="sub">Seigneurs des Hordes</p>
+    <form id="loginForm" autocomplete="off">
+      <label>Pseudo<input id="inName" maxlength="14" autocapitalize="words" spellcheck="false" required></label>
+      <label>Code secret <small>(4 caractères ou plus, pour retrouver ton royaume)</small><input id="inPin" type="password" minlength="4" maxlength="12" required></label>
+      <div id="classPick" hidden>
+        <p class="pickTitle">Nouveau seigneur ! Choisis ta lignée :</p>
+        <div id="classCards"></div>
+      </div>
+      <p id="loginErr"></p>
+      <button id="loginBtn" type="submit">Entrer en Malterre</button>
+    </form>
+  </div>
+</div>
+
+<div id="net" hidden><div>Connexion perdue…<br><small>Reconnexion en cours</small></div></div>
+
+<script src="/shared/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/models.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

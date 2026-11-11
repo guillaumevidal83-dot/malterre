@@ -1,0 +1,11 @@
+{
+  "name": "malterre",
+  "version": "0.1.0",
+  "description": "Malterre — Seigneurs des Hordes (jeu multijoueur 3D)",
+  "main": "server/server.js",
+  "scripts": { "start": "node server/server.js" },
+  "engines": { "node": ">=18" },
+  "optionalDependencies": { "pg": "^8.11.0" },
+  "license": "UNLICENSED",
+  "private": true
+}

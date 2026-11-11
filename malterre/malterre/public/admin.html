@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Malterre — Administration</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<style>
+  :root { --bg: #120d1c; --panel: #1d1530; --line: #3b2d5c; --ink: #efe9f7; --dim: #a79fb8; --acc: #b98cff; --gold: #f1c75b; --bad: #ff6b5e; --ok: #58c97a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 14px; }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font: 700 24px Georgia, serif; letter-spacing: .12em; color: var(--gold); margin: 6px 0 2px; }
+  h2 { font: 600 13px system-ui; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin: 22px 0 8px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  input, select, button { font: inherit; color: inherit; }
+  input, select { background: #0e0a17; border: 1px solid var(--line); border-radius: 8px; padding: 9px; width: 100%; }
+  button { background: #6a45c0; border: 1px solid var(--acc); border-radius: 9px; padding: 9px 13px; font-weight: 600; cursor: pointer; }
+  button.red { background: #9d2a22; border-color: #ff9b90; } button.ghost { background: transparent; }
+  button:disabled { opacity: .5; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .kpi { background: #0e0a17; border-radius: 10px; padding: 9px; font-size: 12px; color: var(--dim); } .kpi b { display: block; font-size: 18px; color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; } th { text-align: left; color: var(--dim); font-weight: 600; font-size: 12px; } td, th { padding: 7px 5px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .wrap { overflow-x: auto; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #555; margin-right: 5px; } .dot.on { background: var(--ok); }
+  .cfg { display: grid; grid-template-columns: 1fr 110px; gap: 7px 10px; align-items: center; font-size: 13.5px; }
+  .rowb { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  #msg { position: sticky; top: 8px; z-index: 2; margin: 10px 0; padding: 10px 12px; border-radius: 10px; display: none; }
+  #msg.ok { display: block; background: #173d26; border: 1px solid var(--ok); } #msg.err { display: block; background: #45171a; border: 1px solid var(--bad); }
+  small { color: var(--dim); } a { color: var(--acc); }
+  .danger { border-color: #7d2a25; }
+  .give { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 7px; margin-top: 8px; }
+  label.s { font-size: 12px; color: var(--dim); display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MALTERRE</h1>
+  <small>Administration du serveur · <a href="/">retour au jeu</a></small>
+  <div id="msg"></div>
+
+  <form id="loginF" class="panel" style="margin-top:16px">
+    <label class="s">Mot de passe admin</label>
+    <div class="rowb" style="margin-top:4px"><input id="pw" type="password" autocomplete="current-password" style="flex:1" required><button>Entrer</button></div>
+  </form>
+
+  <div id="app" hidden>
+    <h2>État du serveur</h2>
+    <div class="grid" id="kpis"></div>
+
+    <h2>Joueurs</h2>
+    <div class="panel wrap"><table><thead><tr><th>Seigneur</th><th>Niv.</th><th>Ressources</th><th>Bâtiments</th><th></th></tr></thead><tbody id="players"></tbody></table></div>
+
+    <h2>Donner des ressources</h2>
+    <div class="panel">
+      <label class="s">Joueur</label><select id="gName"></select>
+      <div class="give">
+        <div><label class="s">🪵 Bois</label><input id="g_wood" type="number" value="0"></div>
+        <div><label class="s">🪨 Pierre</label><input id="g_stone" type="number" value="0"></div>
+        <div><label class="s">🪙 Or</label><input id="g_gold" type="number" value="0"></div>
+        <div><label class="s">✨ Spécial</label><input id="g_spec" type="number" value="0"></div>
+        <div><label class="s">⭐ XP (si en ligne)</label><input id="g_xp" type="number" value="0"></div>
+      </div>
+      <div class="rowb"><button id="giveBtn">Donner</button><small>Un nombre négatif retire. Le stock reste limité par l'entrepôt.</small></div>
+    </div>
+
+    <h2>Réglages du monde</h2>
+    <div class="panel"><div class="cfg" id="cfg"></div><div class="rowb"><button id="cfgBtn">Enregistrer</button><button id="cfgDef" class="ghost">Valeurs par défaut</button></div></div>
+
+    <h2>Message à tous</h2>
+    <div class="panel"><div class="rowb" style="margin:0"><input id="sayTxt" maxlength="140" placeholder="Annonce affichée à tous les joueurs en ligne" style="flex:1"><button id="sayBtn">Envoyer</button></div></div>
+
+    <h2>Sauvegarde</h2>
+    <div class="panel">
+      <div class="rowb" style="margin:0"><button id="bkBtn">Télécharger la sauvegarde</button><button id="rsBtn" class="ghost">Restaurer un fichier…</button><input id="rsFile" type="file" accept="application/json,.json" hidden></div>
+      <small id="storeInfo"></small>
+    </div>
+
+    <h2>Remise à zéro</h2>
+    <div class="panel danger">
+      <p style="margin:0 0 8px"><b>Régénérer le monde</b><br><small>Remplit tous les gisements et fait réapparaître tous les mobs. Les joueurs gardent tout.</small></p>
+      <button id="rwBtn">Régénérer gisements et mobs</button>
+      <p style="margin:16px 0 8px"><b>Tout effacer</b><br><small>Supprime tous les royaumes, héros et serviteurs, et génère une nouvelle carte. Une copie de secours est enregistrée juste avant.</small></p>
+      <button id="rfBtn" class="red">Réinitialiser le serveur</button>
+    </div>
+  </div>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let pw = '', st = null, cfgTouched = false;
+
+function flash(text, ok) { const m = $('msg'); m.textContent = text; m.className = ok ? 'ok' : 'err'; clearTimeout(flash.t); flash.t = setTimeout(() => { m.className = ''; }, 5000); }
+async function api(action, extra) {
+  let res, data;
+  try { res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ pw, action }, extra || {})) }); data = await res.json(); }
+  catch (e) { flash('Serveur injoignable.', false); return null; }
+  if (data.error) { flash(data.error, false); if (res.status === 401 || res.status === 403) { $('app').hidden = true; $('loginF').hidden = false; } if (!data.state) return null; }
+  if (data.ok) flash(data.ok, true); else if (!data.error) $('msg').className = '';
+  if (data.state) { st = data.state; render(); }
+  return data;
+}
+const dur = s => s < 90 ? s + ' s' : s < 5400 ? Math.round(s / 60) + ' min' : s < 172800 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' j';
+
+function render() {
+  $('loginF').hidden = true; $('app').hidden = false;
+  $('kpis').innerHTML = [['En ligne', st.online], ['Royaumes', st.players.length + ' / ' + st.slots], ['Mobs vivants', st.mobs + ' / ' + st.mobsTotal], ['Gisements', st.nodes], ['Serveur allumé depuis', dur(st.uptime)], ['Monde créé il y a', dur(Math.round((Date.now() - st.created) / 1000))]]
+    .map(k => '<div class="kpi">' + k[0] + '<b>' + k[1] + '</b></div>').join('');
+  $('players').innerHTML = st.players.length ? st.players.map(p =>
+    '<tr><td><span class="dot' + (p.online ? ' on' : '') + '"></span><b>' + esc(p.name) + '</b><br><small>' + esc(p.cls) + ' · royaume ' + (p.slot + 1) + ' · ' + (p.online ? 'en ligne' : 'vu il y a ' + dur(p.ago)) + '</small></td>' +
+    '<td>' + p.lvl + '</td><td>🪵 ' + p.res.wood + ' 🪨 ' + p.res.stone + '<br>🪙 ' + p.res.gold + ' ✨ ' + p.res.spec + '</td>' +
+    '<td><small>Trône ' + p.b.throne + ' · Stock ' + p.b.storage + ' · Caserne ' + p.b.barracks + '<br>Autel ' + p.b.altar + ' · Atelier ' + p.b.workshop + ' · ' + p.minions + ' serviteurs</small></td>' +
+    '<td><button class="red" data-del="' + esc(p.name) + '">Supprimer</button></td></tr>').join('') : '<tr><td colspan="5"><small>Aucun joueur pour l\'instant.</small></td></tr>';
+  const sel = $('gName'), cur = sel.value;
+  sel.innerHTML = st.players.map(p => '<option>' + esc(p.name) + '</option>').join(''); if (cur) sel.value = cur;
+  if (!cfgTouched) $('cfg').innerHTML = Object.keys(st.cfg).map(k => '<label for="c_' + k + '">' + esc(st.labels[k] || k) + '</label><input id="c_' + k + '" type="number" step="any" min="0" value="' + st.cfg[k] + '">').join('');
+  $('storeInfo').textContent = 'Stockage actuel : ' + st.store + '.';
+}
+
+$('loginF').addEventListener('submit', e => { e.preventDefault(); pw = $('pw').value; api('state'); });
+$('players').addEventListener('click', e => { const n = e.target.dataset.del; if (n && confirm('Supprimer définitivement le royaume de ' + n + ' ?')) api('delPlayer', { name: n }); });
+$('giveBtn').addEventListener('click', () => api('give', { name: $('gName').value, xp: +$('g_xp').value, res: { wood: +$('g_wood').value, stone: +$('g_stone').value, gold: +$('g_gold').value, spec: +$('g_spec').value } }));
+$('cfg').addEventListener('input', () => { cfgTouched = true; });
+$('cfgBtn').addEventListener('click', async () => { const cfg = {}; for (const k in st.cfg) cfg[k] = +$('c_' + k).value; cfgTouched = false; await api('setCfg', { cfg }); });
+$('cfgDef').addEventListener('click', () => { for (const k in st.defaults) $('c_' + k).value = st.defaults[k]; cfgTouched = true; });
+$('sayBtn').addEventListener('click', () => { if ($('sayTxt').value.trim()) api('say', { text: $('sayTxt').value }).then(() => { $('sayTxt').value = ''; }); });
+$('bkBtn').addEventListener('click', async () => {
+  const d = await api('backup'); if (!d || !d.backup) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d.backup)], { type: 'application/json' }));
+  a.download = 'malterre-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'; a.click(); URL.revokeObjectURL(a.href);
+  flash('Sauvegarde téléchargée.', true);
+});
+$('rsBtn').addEventListener('click', () => $('rsFile').click());
+$('rsFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  let data; try { data = JSON.parse(await f.text()); } catch (err) { return flash('Ce fichier n\'est pas une sauvegarde valide.', false); }
+  if (confirm('Remplacer le monde actuel par cette sauvegarde ? Les joueurs en ligne seront déconnectés.')) api('restore', { data });
+});
+$('rwBtn').addEventListener('click', () => { if (confirm('Régénérer tous les gisements et tous les mobs ?')) api('resetWorld'); });
+$('rfBtn').addEventListener('click', () => {
+  if (!confirm('Tout effacer : royaumes, héros, serviteurs, carte. Continuer ?')) return;
+  if (prompt('Pour confirmer, écris : MALTERRE') !== 'MALTERRE') return flash('Réinitialisation annulée.', false);
+  api('resetFull');
+});
+setInterval(() => { if (pw && !$('app').hidden) api('state'); }, 10000);
+</script>
+</body>
+</html>
