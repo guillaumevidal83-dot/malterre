@@ -109,7 +109,7 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; letter-spacing: .08
 .pickTitle { color: var(--gold); font-size: 14px; margin: 4px 0 8px; }
 #classCards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
 .cls { background: rgba(255, 255, 255, .05); border: 2px solid var(--line); border-radius: 14px; padding: 10px 8px; text-align: center; }
-.cls.on { border-color: var(--gold); background: rgba(241, 199, 91, .12); } .cls .e { font-size: 34px; } .cls h3 { font-size: 15px; } .cls p { font-size: 11.5px; color: var(--dim); margin: 4px 0 0; }
+.cls.on { border-color: var(--gold); background: rgba(241, 199, 91, .12); } .cls .e { font-size: 30px; } .cls h3 { font-size: 15px; } .cls p { font-size: 11.5px; color: var(--dim); margin: 4px 0 0; }
 #modal, #net { position: fixed; inset: 0; background: rgba(8, 5, 14, .7); display: grid; place-items: center; padding: 20px; z-index: 5; }
 #modalBox, #net > div { background: var(--panel); border: 1px solid var(--gold); border-radius: 16px; padding: 18px; width: min(88vw, 340px); text-align: center; }
 #modalBox h2 { font-size: 19px; color: var(--gold); margin-bottom: 8px; } #modalBox p { color: var(--dim); font-size: 13.5px; margin: 6px 0; } #modalBox .gain { font-size: 17px; font-weight: 600; margin: 3px 0; }

@@ -21,7 +21,7 @@
     shake: 0, floats: [], parts: [], rings: [], projs: [], time: 0, tier: 0, zoneKey: '', seen: 0, sfxBudget: 0,
     lootEnd: 0, lootDur: 1, quality: store.get('malterre_q') || 'med', tab: 'fort', sheet: false, deathAt: 0, lastSend: 0, lastSent: '', pending: null,
   };
-  const ICON = { lich: '💀', goblin: '👺' };
+  const ICON = {}; for (const c in D.CLASSES) ICON[c] = D.CLASSES[c].icon;
   const BICON = { throne: '👑', storage: '📦', barracks: '⚰️', altar: '🔮', workshop: '⚒️' };
   const MICON = { skeleton: '💀', zombie: '🧟', goblin: '👺', brute: '👹' };
   const ZONES = ['', 'Terres calmes', 'Bois sombres', 'Terres maudites'];
@@ -136,7 +136,7 @@
       if (src) {
         src.atkT = S.time;
         if (src.id === S.id) { S.atkT = S.time; S.r = Math.atan2(tx - S.x, tz - S.z); Sound.vibrate(crit ? 35 : 12); }
-        if (kind === 'b') { const sx = src.id === S.id ? S.x : src.x, sz = src.id === S.id ? S.z : src.z; S.projs.push({ x0: sx, y0: 2.2, z0: sz, x1: tx, y1: hgt * 0.6, z1: tz, t: 0, dur: 0.14, col: [0.5, 1.9, 0.9], size: 0.28 }); }
+        if (kind === 'b') { const sx = src.id === S.id ? S.x : src.x, sz = src.id === S.id ? S.z : src.z; S.projs.push({ x0: sx, y0: 2.2, z0: sz, x1: tx, y1: hgt * 0.6, z1: tz, t: 0, dur: 0.14, col: src.k === 0 && D.CLASSES[src.t] ? D.CLASSES[src.t].fx : [0.9, 0.85, 0.7], size: src.k === 0 ? 0.28 : 0.18 }); }
       }
       burst(tx, hgt * 0.55, tz, tg.k === 2 ? [0.75, 0.1, 0.1] : [0.85, 0.82, 0.75], 3, 2.5);
       if (onMe) { sfx('hurt'); Sound.vibrate(dmg > S.mh * 0.15 ? [60, 30, 60] : 40); S.shake = Math.max(S.shake, 0.35); const v = $('vignette'); v.style.transition = 'none'; v.style.opacity = 0.8; requestAnimationFrame(() => { v.style.transition = 'opacity .6s'; v.style.opacity = S.hp / S.mh < 0.3 ? 0.45 : 0; }); }
@@ -152,14 +152,16 @@
     } else if (k === 'fx') {
       const name = ev[1], x = ev[2], z = ev[3], r = ev[4], src = S.ents.get(ev[5]), mine = ev[5] === S.id, near = dme(x, z) < 22;
       if (src) src.atkT = S.time; if (mine) S.atkT = S.time;
+      const fc = src && src.k === 0 && D.CLASSES[src.t] ? D.CLASSES[src.t].fx : [0.9, 0.4, 2.2], fc2 = [fc[0] * 0.6 + 0.3, fc[1] * 0.6 + 0.3, fc[2] * 0.6 + 0.3];
       if (name === 'swing') sfx('swing', x, z);
       else if (name === 'chop') { burst(x, 1.2, z, ev[6] === 'wood' ? [0.5, 0.34, 0.2] : ev[6] === 'gold' ? [1.6, 1.2, 0.3] : [0.6, 0.6, 0.62], 6, 3); sfx('hit', x, z); if (mine) { S.r = Math.atan2(x - S.x, z - S.z); floatText(x, 2.6, z, '+' + ev[4] + ' ' + resIcon(ev[6]), '#ffe29a', 15, 1); Sound.vibrate(10); } }
-      else if (name === 'bolt') { S.projs.push({ x0: x, y0: 2.4, z0: z, x1: ev[6], y1: 1.2, z1: ev[7], t: 0, dur: 0.22, col: [0.9, 0.4, 2.2], size: 0.6, boom: [0.8, 0.4, 2] }); sfx('bigbolt', x, z); if (mine) Sound.vibrate([15, 20, 40]); }
-      else if (name === 'nova') { ring(x, z, 0.5, r, 0.5, [0.25, 0.7, 2.2]); ring(x, z, 0.2, r * 0.7, 0.65, [0.5, 1.0, 2.4]); for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; part(x + Math.sin(a) * 1.5, 0.6, z + Math.cos(a) * 1.5, Math.sin(a) * 13, 1.5, Math.cos(a) * 13, 0.55, 0.3, [1.3, 1.7, 2.3], 2); } sfx('nova', x, z); if (mine) Sound.vibrate([20, 30, 50]); }
-      else if (name === 'raise') { ring(x, z, 0.5, 4.5, 0.8, [0.4, 1.9, 0.8]); for (let i = 0; i < 24; i++) part(x + (Math.random() - 0.5) * 6, 0.1, z + (Math.random() - 0.5) * 6, 0, 3 + Math.random() * 4, 0, 0.9, 0.25, [0.4, 1.9, 0.8], -1); sfx('raise', x, z); if (mine) Sound.vibrate([30, 40, 30, 40, 60]); }
+      else if (name === 'bolt') { S.projs.push({ x0: x, y0: 2.4, z0: z, x1: ev[6], y1: 1.2, z1: ev[7], t: 0, dur: 0.22, col: fc, size: 0.6, boom: fc }); sfx('bigbolt', x, z); if (mine) Sound.vibrate([15, 20, 40]); }
+      else if (name === 'nova') { const nc = src && src.t === 'lich' ? [0.25, 0.7, 2.2] : fc; ring(x, z, 0.5, r, 0.5, nc); ring(x, z, 0.2, r * 0.7, 0.65, [nc[0] * 0.7 + 0.3, nc[1] * 0.7 + 0.3, nc[2] * 0.7 + 0.2]); for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; part(x + Math.sin(a) * 1.5, 0.6, z + Math.cos(a) * 1.5, Math.sin(a) * 13, 1.5, Math.cos(a) * 13, 0.55, 0.3, nc, 2); } sfx('nova', x, z); if (mine) Sound.vibrate([20, 30, 50]); }
+      else if (name === 'raise') { ring(x, z, 0.5, 4.5, 0.8, fc); for (let i = 0; i < 24; i++) part(x + (Math.random() - 0.5) * 6, 0.1, z + (Math.random() - 0.5) * 6, 0, 3 + Math.random() * 4, 0, 0.9, 0.25, fc, -1); sfx('raise', x, z); if (mine) Sound.vibrate([30, 40, 30, 40, 60]); }
       else if (name === 'smash') { ring(x, z, 0.5, r, 0.35, [2, 1.2, 0.4]); burst(x, 0.3, z, [0.5, 0.42, 0.3], 22, 7); sfx('smash', x, z); if (near) S.shake = Math.max(S.shake, mine ? 0.7 : 0.4); if (mine) Sound.vibrate(70); }
-      else if (name === 'bomb') { ring(x, z, 0.5, r, 0.4, [2.4, 1.2, 0.3]); burst(x, 0.8, z, [2.4, 1.1, 0.2], 30, 9); burst(x, 0.5, z, [0.25, 0.22, 0.2], 14, 5); sfx('bomb', x, z); if (near) S.shake = Math.max(S.shake, 0.6); if (mine) Sound.vibrate([20, 60, 90]); }
-      else if (name === 'warcry') { ring(x, z, 1, r, 0.7, [2.2, 0.5, 0.3]); ring(x, z, 0.5, r * 0.6, 0.9, [2.2, 1.2, 0.3]); sfx('warcry', x, z); if (mine) Sound.vibrate([40, 40, 40, 40, 120]); }
+      else if (name === 'bomb') { ring(x, z, 0.5, r, 0.4, fc); burst(x, 0.8, z, fc, 30, 9); burst(x, 0.5, z, [0.25, 0.22, 0.2], 14, 5); sfx('bomb', x, z); if (near) S.shake = Math.max(S.shake, 0.6); if (mine) Sound.vibrate([20, 60, 90]); }
+      else if (name === 'warcry') { ring(x, z, 1, r, 0.7, fc); ring(x, z, 0.5, r * 0.6, 0.9, fc2); sfx('warcry', x, z); if (mine) Sound.vibrate([40, 40, 40, 40, 120]); }
+      else if (name === 'heal') { ring(x, z, 0.5, r, 0.9, [0.5, 2.2, 0.7]); for (let i = 0; i < 30; i++) part(x + (Math.random() - 0.5) * r, 0.2, z + (Math.random() - 0.5) * r, 0, 3 + Math.random() * 4, 0, 1.0, 0.22, [0.5, 2.2, 0.7], -1); sfx('summon', x, z); if (mine) Sound.vibrate([30, 40, 60]); }
       else if (name === 'slam') { ring(x, z, 1, r, 0.5, [2, 0.3, 0.2]); burst(x, 0.4, z, [0.4, 0.36, 0.34], 40, 10); sfx('slam', x, z); if (dme(x, z) < 40) { S.shake = Math.max(S.shake, 0.9); Sound.vibrate([90, 40, 90]); } }
       else if (name === 'build') { ring(x, z, 1, 7, 0.9, [2.2, 1.7, 0.5]); burst(x, 0.5, z, [0.7, 0.62, 0.5], 30, 6); for (let i = 0; i < 16; i++) part(x + (Math.random() - 0.5) * 6, 0.2, z + (Math.random() - 0.5) * 6, 0, 4 + Math.random() * 5, 0, 1.1, 0.25, [2.2, 1.7, 0.5], -0.5); sfx('build', x, z); if (mine) Sound.vibrate([30, 60, 30, 60, 120]); }
       else if (name === 'loot') { ring(x, z, 1, 8, 1, [2.4, 1.8, 0.4]); burst(x, 1, z, [2.4, 1.8, 0.4], 40, 8); sfx('build', x, z); }
@@ -275,7 +277,7 @@
   function canBuild(b) {
     const me = S.me, def = D.BUILDINGS[b], lvl = me.b[b] || 0;
     if (lvl >= def.max) return { ok: false, why: 'Niveau maximum', max: true };
-    const cost = D.cost(b, lvl);
+    const cost = D.cost(b, lvl, me.cls);
     if (b !== 'throne' && lvl >= me.b.throne) return { ok: false, why: 'Trône niveau ' + (lvl + 1) + ' requis', cost };
     if (b === 'throne' && me.lvl < D.throneNeed(lvl)) return { ok: false, why: 'Héros niveau ' + D.throneNeed(lvl) + ' requis', cost };
     for (const r in cost) if ((me.res[r] || 0) < cost[r]) return { ok: false, why: '', cost };
@@ -292,9 +294,9 @@
     if (S.tab === 'fort') {
       const mf = S.forts[me.slot], shLeft = mf && mf.shEnd > S.time ? mf.shEnd - S.time : 0;
       h += '<div class="card"><div class="big">' + (shLeft ? '🛡️' : '⚠️') + '</div><div class="mid"><h3>' + (shLeft ? 'Forteresse protégée' : 'Forteresse exposée') + '</h3><p>' + (shLeft ? 'Personne ne peut te piller pendant encore ' + fmtDur(shLeft) + '. Si tu pilles quelqu\'un, ta protection tombe.' : 'Un autre seigneur peut voler ' + Math.round(S.cfg.raidLoot * 100) + ' % de ton stock. Laisse des serviteurs en Garde pour la défendre.') + '</p></div></div>';
-      h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + (me.cls === 'lich' ? 'des os' : 'de la ferraille') + '. Ton héros récolte aussi : frappe un arbre, un rocher ou un filon avec le bouton d\'attaque.</div>';
+      h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + 'la ressource de ta classe (' + cls.spec.toLowerCase() + '). Ton héros récolte aussi : frappe un arbre, un rocher ou un filon avec le bouton d\'attaque.</div>';
       for (const b in D.BUILDINGS) {
-        const lvl = me.b[b] || 0, c = canBuild(b), icon = b === 'barracks' && me.cls === 'goblin' ? '⛺' : b === 'altar' && me.cls === 'goblin' ? '🗿' : BICON[b];
+        const lvl = me.b[b] || 0, c = canBuild(b), icon = b === 'barracks' && me.cls !== 'lich' ? '⛺' : b === 'altar' && me.cls !== 'lich' ? '🗿' : BICON[b];
         h += '<div class="card"><div class="big">' + icon + '</div><div class="mid"><h3>' + esc(cls.bnames[b]) + '<em>' + (lvl ? 'niv. ' + lvl : 'à construire') + '</em></h3><p>' + D.BUILDINGS[b].desc + '</p>' +
           (c.max ? '' : costHtml(c.cost)) + (c.why && !c.max ? '<p style="color:var(--bad)">' + c.why + '</p>' : '') + '</div>' +
           (c.max ? '<span class="note">MAX</span>' : '<button class="btn' + (c.ok ? ' gold' : '') + '" data-act="build" data-arg="' + b + '"' + (c.ok ? '' : ' disabled') + '>' + (lvl ? 'Améliorer' : 'Construire') + '</button>') + '</div>';
@@ -306,9 +308,9 @@
       h += '<div class="sec">Invoquer</div>';
       for (const mt of cls.minions) {
         const def = D.MINIONS[mt], locked = (me.b.barracks || 0) < def.unlock, full = me.minions.length >= me.mcap;
-        let ok = !locked && !full; for (const r in def.cost) if ((me.res[r] || 0) < def.cost[r]) ok = false;
+        const mc = D.minionCost(mt, me.cls); let ok = !locked && !full; for (const r in mc) if ((me.res[r] || 0) < mc[r]) ok = false;
         const n = me.minions.filter(m => m[0] === mt).length;
-        h += '<div class="card"><div class="big">' + def.icon + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p><b style="color:var(--acc)">' + def.tag + '</b> · Vie ' + def.hp + ' · Dégâts ' + def.dmg + (def.range ? ' · Portée ' + def.range : '') + ' · Récolte ×' + def.work + '</p>' + costHtml(def.cost) +
+        h += '<div class="card"><div class="big">' + def.icon + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p><b style="color:var(--acc)">' + def.tag + '</b> · Vie ' + def.hp + ' · Dégâts ' + def.dmg + (def.range ? ' · Portée ' + def.range : '') + ' · Récolte ×' + def.work + '</p>' + costHtml(mc) +
           (locked ? '<p style="color:var(--bad)">' + esc(cls.bnames.barracks) + ' niveau ' + def.unlock + ' requis</p>' : full ? '<p style="color:var(--bad)">Limite atteinte : améliore ' + esc(cls.bnames.barracks) + '</p>' : '') + '</div>' +
           '<div class="side"><button class="btn' + (ok ? ' gold' : '') + '" data-act="summon" data-arg="' + mt + '"' + (ok ? '' : ' disabled') + '>Invoquer</button>' +
           (n ? '<button class="btn red small" data-act="dismiss" data-arg="' + mt + '">Sacrifier</button>' : '') + '</div></div>';
@@ -331,7 +333,7 @@
         h += '<div class="sec">' + (who === 'hero' ? 'Équipement du héros' : 'Équipement des serviteurs') + '</div>';
         for (const id in D.CRAFTS) {
           const c = D.CRAFTS[id]; if (c.who !== who) continue;
-          const tier = (me.craft || {})[id] || 0, max = tier >= D.CRAFT_MAX, cost = max ? null : D.craftCost(id, tier);
+          const tier = (me.craft || {})[id] || 0, max = tier >= D.CRAFT_MAX, cost = max ? null : D.craftCost(id, tier, me.cls);
           let ok = !max && tier < wl; if (cost) for (const r in cost) if ((me.res[r] || 0) < cost[r]) ok = false;
           h += '<div class="card"><div class="big">' + c.icon + '</div><div class="mid"><h3>' + c.name + '<em class="pips">' + '●'.repeat(tier) + '○'.repeat(D.CRAFT_MAX - tier) + '</em></h3><p>' + c.desc + '</p>' + (cost ? costHtml(cost) : '') +
             (!max && tier >= wl ? '<p style="color:var(--bad)">' + esc(cls.bnames.workshop) + ' niveau ' + (tier + 1) + ' requis</p>' : '') + '</div>' +
@@ -340,6 +342,7 @@
       }
     } else if (S.tab === 'hero') {
       h += '<div class="stat"><div>' + cls.title + '<b>' + ICON[me.cls] + ' ' + cls.name + ' niv. ' + me.lvl + '</b></div><div>Expérience<b>' + me.xp + ' / ' + me.need + '</b></div><div>Vie<b>' + S.mh + '</b></div><div>Dégâts<b>' + me.dmg + '</b></div><div>Monstres vaincus<b>' + me.kills + '</b></div><div>Royaume<b>n° ' + (me.slot + 1) + '</b></div></div>';
+      h += '<div class="card on"><div class="big">★</div><div class="mid"><h3>' + esc(cls.passive.name) + '<em>atout de classe</em></h3><p>' + esc(cls.passive.desc) + '</p></div></div>';
       const rel = me.relics || [], eq = me.eq || {};
       h += '<div class="sec">Reliques (' + rel.length + ' / ' + Object.keys(D.RELICS).length + ')</div>';
       if (!rel.length) h += '<div class="note">Aucune relique pour l\'instant. Les élites et les boss en lâchent parfois : Troll, Mère des araignées, Seigneur de guerre orc, Gardien de Malterre.</div>';
@@ -386,7 +389,7 @@
 
   /* ================= Accueil ================= */
   let pickCls = null;
-  $('classCards').innerHTML = Object.keys(D.CLASSES).map(c => '<div class="cls" data-c="' + c + '"><div class="e">' + ICON[c] + '</div><h3>' + D.CLASSES[c].name + '</h3><p>' + D.CLASSES[c].desc + '</p></div>').join('');
+  $('classCards').innerHTML = Object.keys(D.CLASSES).map(c => '<div class="cls" data-c="' + c + '"><div class="e">' + ICON[c] + '</div><h3>' + D.CLASSES[c].name + '</h3><p>' + D.CLASSES[c].desc + '</p><p style="color:var(--gold)">★ ' + D.CLASSES[c].passive.name + '</p></div>').join('');
   $('classCards').addEventListener('click', e => { const c = e.target.closest('.cls'); if (!c) return; pickCls = c.dataset.c; for (const x of $('classCards').children) x.classList.toggle('on', x === c); Sound.init(); Sound.play('click'); });
   $('inName').value = store.get('malterre_name') || '';
   $('loginForm').addEventListener('submit', e => {
@@ -482,7 +485,7 @@
 
   /* ================= Rendu ================= */
   const MM = M4.create(), PM = M4.create(), TINT = [1, 1, 1];
-  const modelOf = e => e.k === 0 ? (e.t === 'goblin' ? 'goblin_king' : 'lich') : e.k === 2 ? (D.MOBS[e.t].model || e.t) : (D.MINIONS[e.t].model || e.t);
+  const modelOf = e => e.k === 0 ? D.CLASSES[e.t].model : e.k === 2 ? (D.MOBS[e.t].model || e.t) : (D.MINIONS[e.t].model || e.t);
   const mscale = e => Models.get(modelOf(e)).s * (e.k === 2 ? (D.MOBS[e.t].scale || 1) : e.k === 1 ? (D.MINIONS[e.t].scale || 1) : 1);
   function drawEnt(e, x, z, shadows) {
     const mdl = Models.get(modelOf(e)), t = S.time;

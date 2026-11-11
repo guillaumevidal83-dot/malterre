@@ -44,6 +44,8 @@ const Models = (function () {
     if (o.ears) { body.at(-0.4, hy + 0.05, 0, 0, 0, 0.5).box(0.4, 0.14, 0.06, skin); body.at(0.4, hy + 0.05, 0, 0, 0, -0.5).box(0.4, 0.14, 0.06, skin); }
     if (o.tusks) { body.at(-0.14, hy - 0.2, 0.27).cyl(0.04, 0, 0.18, 4, [0.95, 0.93, 0.85]); body.at(0.14, hy - 0.2, 0.27).cyl(0.04, 0, 0.18, 4, [0.95, 0.93, 0.85]); }
     if (o.crown) { body.at(0, hy + 0.24, 0).cyl(0.3, 0.34, 0.16, 6, GOLD); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; body.at(Math.cos(a) * 0.3, hy + 0.38, Math.sin(a) * 0.3).cyl(0.06, 0, 0.18, 4, GOLD); } }
+    if (o.horns) { body.at(-0.2, hy + 0.2, 0, 0, 0, 0.5).cyl(0.08, 0, 0.42, 4, o.horns); body.at(0.2, hy + 0.2, 0, 0, 0, -0.5).cyl(0.08, 0, 0.42, 4, o.horns); }
+    if (o.beard) body.at(0, hy - 0.38, 0.2).box(0.44, 0.5, 0.16, o.beard);
     if (o.leaves) { body.at(0, hy + 0.45, 0).ball(0.62, 0.45, 0.62, o.leaves, 6, 3); body.at(-0.5 * b, 1.7, 0).ball(0.3, 0.22, 0.3, o.leaves, 5, 3); body.at(0.5 * b, 1.7, 0).ball(0.3, 0.22, 0.3, o.leaves, 5, 3); }
     if (o.cape) body.at(0, 1.02, -0.3 * b, 0, 0.14).box(0.82 * b, 1.25, 0.06, o.cape);
     parts.push({ geo: body, p: [0, 0, 0], k: 'body' });
@@ -114,6 +116,22 @@ const Models = (function () {
     berserker: () => humanoid({ skin: hex('#7fbf4a'), cloth: hex('#a3261c'), head: 'round', eye: [2, 0.3, 0.2], ears: true, tusks: true, weapon: 'axe', bulk: 1.1 }),
     treant: () => humanoid({ skin: hex('#6b4a2a'), cloth: hex('#4f3620'), limb: hex('#5c3f24'), head: 'round', eye: [1.2, 1.8, 0.4], leaves: [0.22, 0.5, 0.2], bulk: 1.15 }),
     golem: () => humanoid({ skin: hex('#8a8d94'), cloth: hex('#6f737b'), limb: hex('#7c8088'), head: 'round', eye: [0.4, 1.2, 2.2], core: [0.4, 1.2, 2.4], bulk: 1.5 }),
+    demon_lord: () => humanoid({ skin: hex('#b3261c'), cloth: hex('#2a1418'), head: 'round', eye: [2.4, 1.6, 0.2], horns: [0.15, 0.12, 0.12], crown: true, tusks: true, weapon: 'staff', cape: hex('#3a0c10'), bulk: 1.2 }),
+    druid: () => humanoid({ robe: true, skin: hex('#c9a57a'), cloth: hex('#2f5a34'), sleeve: hex('#27492b'), head: 'hood', eye: [0.6, 1.8, 0.4], horns: [0.75, 0.68, 0.5], leaves: [0.3, 0.6, 0.22], weapon: 'staff', cape: hex('#3d2f1c') }),
+    dwarf_lord: () => humanoid({ skin: hex('#d9a47a'), cloth: hex('#4a5560'), limb: hex('#6b7682'), head: 'helm', eye: [0.5, 1.4, 2.4], beard: hex('#c0622a'), crown: true, weapon: 'mace', cape: hex('#27406b'), bulk: 1.5 }),
+    imp: () => humanoid({ skin: hex('#c8402e'), cloth: hex('#4a1a14'), head: 'round', eye: [2.2, 1.6, 0.2], horns: [0.2, 0.15, 0.15], ears: true, weapon: 'dagger' }),
+    borer: () => humanoid({ skin: hex('#c8402e'), cloth: hex('#6b5a2a'), head: 'round', eye: [2.2, 1.6, 0.2], horns: [0.2, 0.15, 0.15], ears: true, weapon: 'pick' }),
+    spitter: () => humanoid({ skin: hex('#e0622a'), cloth: hex('#30120e'), head: 'hood', eye: [2.4, 1.8, 0.3], horns: [0.2, 0.15, 0.15], weapon: 'bow' }),
+    hound: () => quad({ col: hex('#5a1c16'), w: 1.05, eye: [2.4, 1.6, 0.2] }),
+    fiend: () => humanoid({ skin: hex('#9c2a20'), cloth: hex('#241012'), head: 'round', eye: [2.4, 1.6, 0.2], horns: [0.15, 0.12, 0.12], tusks: true, weapon: 'axe', bulk: 1.35 }),
+    sprite: () => humanoid({ skin: hex('#8fcf7a'), cloth: hex('#4a7a3a'), head: 'round', eye: [0.2, 0.3, 0.1], ears: true, leaves: [0.3, 0.62, 0.22], weapon: 'dagger' }),
+    forager: () => humanoid({ skin: hex('#8fcf7a'), cloth: hex('#7a5a2a'), head: 'round', eye: [0.2, 0.3, 0.1], ears: true, leaves: [0.3, 0.62, 0.22], weapon: 'pick' }),
+    dryad: () => humanoid({ skin: hex('#a8d99a'), cloth: hex('#3a6b34'), head: 'round', eye: [0.3, 0.9, 0.3], leaves: [0.85, 0.5, 0.7], weapon: 'bow', bulk: 0.8 }),
+    bear: () => quad({ col: hex('#5c4030'), w: 1.5, eye: [0.1, 0.1, 0.1] }),
+    automaton: () => humanoid({ skin: hex('#b08d57'), cloth: hex('#6b5a3a'), limb: hex('#9a7b4a'), head: 'helm', eye: [0.5, 1.6, 2.4], weapon: 'sword', bulk: 0.9 }),
+    driller: () => humanoid({ skin: hex('#b08d57'), cloth: hex('#4a5560'), limb: hex('#9a7b4a'), head: 'helm', eye: [0.5, 1.6, 2.4], weapon: 'pick', bulk: 0.9 }),
+    crossbow: () => humanoid({ skin: hex('#8d9aa8'), cloth: hex('#4a5560'), limb: hex('#7c8896'), head: 'helm', eye: [0.5, 1.6, 2.4], weapon: 'bow', bulk: 0.85 }),
+    blade: () => humanoid({ skin: hex('#c9ced6'), cloth: hex('#27406b'), limb: hex('#aab2bd'), head: 'helm', eye: [2.2, 0.5, 0.3], weapon: 'sword', bulk: 0.85 }),
     wolf: () => quad({ col: hex('#7c7f88'), w: 1, eye: [1.6, 1.3, 0.3] }),
     boar: () => quad({ col: hex('#6b4a33'), w: 1.3, eye: [0.1, 0.1, 0.1], tusks: true }),
     bandit: () => humanoid({ skin: hex('#d2a680'), cloth: hex('#5a4a3a'), head: 'hood', weapon: 'sword' }),
@@ -123,7 +141,7 @@ const Models = (function () {
     troll: () => humanoid({ skin: hex('#6f8fa3'), cloth: hex('#4c3b2a'), head: 'round', eye: [1.6, 1.4, 0.3], tusks: true, ears: true, weapon: 'club', bulk: 1.6 }),
     guardian: () => humanoid({ skin: hex('#6b6f78'), cloth: hex('#585c66'), limb: hex('#7a7e88'), head: 'helm', eye: [2.2, 1.0, 0.2], core: [2.4, 1.1, 0.2], bulk: 1.7 }),
   };
-  const SCALE = { digger: 0.9, archer: 0.9, miner: 0.7, slinger: 0.7, berserker: 0.85, lich: 1.15, goblin_king: 1.1, skeleton: 0.9, raised: 0.9, zombie: 1.0, goblin: 0.7, brute: 1.05, wolf: 1.0, boar: 1.0, bandit: 1.0, spider: 1.25, orc: 1.25, knight: 1.25, troll: 2.1, guardian: 3.4 };
+  const SCALE = { demon_lord: 1.15, druid: 1.12, dwarf_lord: 0.95, imp: 0.65, borer: 0.65, spitter: 0.68, hound: 1.0, fiend: 1.1, sprite: 0.65, forager: 0.65, dryad: 0.9, bear: 1.25, automaton: 0.9, driller: 0.9, crossbow: 0.9, blade: 0.95, digger: 0.9, archer: 0.9, miner: 0.7, slinger: 0.7, berserker: 0.85, lich: 1.15, goblin_king: 1.1, skeleton: 0.9, raised: 0.9, zombie: 1.0, goblin: 0.7, brute: 1.05, wolf: 1.0, boar: 1.0, bandit: 1.0, spider: 1.25, orc: 1.25, knight: 1.25, troll: 2.1, guardian: 3.4 };
 
   function build(def) { for (const p of def.parts) { p.m = eng.mesh(p.geo); delete p.geo; } return def; }
   function get(name) { if (!cache[name]) { cache[name] = build(DEFS[name]()); cache[name].s = SCALE[name] || 1; } return cache[name]; }
@@ -196,6 +214,9 @@ const Models = (function () {
   /* ---------- Forteresses ---------- */
   const PAL = {
     lich: { stone: [0.3, 0.29, 0.37], dark: [0.17, 0.16, 0.22], glow: [0.5, 1.7, 0.8], trim: BONE, roof: [0.3, 0.17, 0.42] },
+    demon: { stone: [0.32, 0.14, 0.13], dark: [0.16, 0.08, 0.09], glow: [2.2, 0.7, 0.15], trim: [0.2, 0.18, 0.18], roof: [0.5, 0.1, 0.08] },
+    druid: { stone: [0.42, 0.32, 0.2], dark: [0.27, 0.2, 0.12], glow: [0.9, 1.9, 0.4], trim: [0.6, 0.58, 0.5], roof: [0.2, 0.42, 0.18] },
+    dwarf: { stone: [0.5, 0.5, 0.54], dark: [0.3, 0.31, 0.35], glow: [0.5, 1.2, 2.4], trim: [0.72, 0.5, 0.25], roof: [0.6, 0.36, 0.2] },
     goblin: { stone: [0.5, 0.34, 0.2], dark: [0.3, 0.2, 0.12], glow: [1.9, 0.8, 0.2], trim: [0.55, 0.55, 0.58], roof: [0.62, 0.2, 0.14] },
   };
   function building(cls, type, lvl) {
@@ -220,11 +241,11 @@ const Models = (function () {
         g.at(0, 0.9, 2.02).box(1.4, 1.8, 0.1, DARK);
         for (let i = 0; i < lvl; i++) g.at(3.2 + (i % 2) * 0.9, 0.4 + (i > 3 ? 0.8 : 0), -1.4 + (i % 4 >> 1) * 1.0, i).box(0.8, 0.8, 0.8, i % 2 ? P.trim : WOOD);
       } else if (type === 'barracks') {
-        if (cls === 'goblin') { g.at(0, 0, 0).cyl(3.3, 0.3, 3.8, 7, P.roof); g.at(0, 3.6, 0).cyl(0.1, 0.1, 1.2, 4, WOOD); g.at(0, 0.9, 3.0).box(1.3, 1.8, 0.3, DARK); }
+        if (cls === 'goblin' || cls === 'druid') { g.at(0, 0, 0).cyl(3.3, 0.3, 3.8, 7, P.roof); g.at(0, 3.6, 0).cyl(0.1, 0.1, 1.2, 4, WOOD); g.at(0, 0.9, 3.0).box(1.3, 1.8, 0.3, DARK); }
         else { g.at(0, 1, 0).box(5.5, 2, 4.5, P.stone); g.at(0, 2.15, 0).box(6, 0.3, 5, P.dark); g.at(0, 0.9, 2.27).box(1.4, 1.8, 0.1, mul(P.glow, 0.45)); g.at(0, 2.9, 0).box(0.25, 1.2, 0.25, P.trim); g.at(0, 3.1, 0).box(0.8, 0.22, 0.22, P.trim); }
         for (let i = 0; i <= lvl; i++) {
           const x = -4.2 + (i % 2) * 8.4, z = -1.5 + (i >> 1) * 1.5;
-          if (cls === 'goblin') g.at(x, 0, z, 0, 0, i % 2 ? -0.2 : 0.2).cyl(0.16, 0, 2.2, 4, WOOD);
+          if (cls === 'goblin' || cls === 'druid') g.at(x, 0, z, 0, 0, i % 2 ? -0.2 : 0.2).cyl(0.16, 0, 2.2, 4, WOOD);
           else { g.at(x, 0.55, z).box(0.7, 1.1, 0.2, P.trim); }
         }
       } else if (type === 'altar') {
@@ -244,13 +265,14 @@ const Models = (function () {
   function wall(cls) {
     const P = PAL[cls] || PAL.lich, R = 24;
     return single('wall_' + cls, g => {
-      g.at(0, 0.03, 0).disc(26, 28, cls === 'goblin' ? [0.36, 0.29, 0.2] : [0.25, 0.24, 0.27]);
+      const logs = cls === 'goblin' || cls === 'druid';
+      g.at(0, 0.03, 0).disc(26, 28, cls === 'goblin' ? [0.36, 0.29, 0.2] : cls === 'druid' ? [0.24, 0.36, 0.2] : cls === 'demon' ? [0.22, 0.14, 0.14] : cls === 'dwarf' ? [0.36, 0.36, 0.39] : [0.25, 0.24, 0.27]);
       const n = 96;
       for (let i = 0; i < n; i++) {
         let a = i / n * TAU; if (a > Math.PI) a -= TAU;
         if (Math.abs(a) < 0.21) continue;
         const x = Math.sin(a) * R, z = Math.cos(a) * R, tall = i % 4 === 0;
-        if (cls === 'goblin') { g.at(x, 0, z).cyl(0.52, 0.46, 3 + (i % 3) * 0.3, 5, i % 2 ? P.stone : P.dark); g.at(x, 3 + (i % 3) * 0.3, z).cyl(0.46, 0, 0.9, 5, P.stone); }
+        if (logs) { g.at(x, 0, z).cyl(0.52, 0.46, 3 + (i % 3) * 0.3, 5, i % 2 ? P.stone : P.dark); g.at(x, 3 + (i % 3) * 0.3, z).cyl(0.46, 0, 0.9, 5, P.stone); }
         else { g.at(x, tall ? 2.1 : 1.6, z, a).box(1.62, tall ? 4.2 : 3.2, 1.0, tall ? P.dark : P.stone); if (tall) g.at(x, 4.4, z).ball(0.25, 0.35, 0.25, P.glow, 4, 3); }
       }
       for (const s of [-1, 1]) { const a = s * 0.23, x = Math.sin(a) * R, z = Math.cos(a) * R; g.at(x, 0, z).cyl(0.75, 0.6, 5.5, 6, P.dark); g.at(x, 5.5, z).cyl(0.9, 0, 1.3, 6, P.roof); }

@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.3.1',
+    VERSION: '0.4.0',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
@@ -27,30 +27,72 @@
     },
     START: { res: { wood: 60, stone: 40, gold: 0, spec: 45 }, roles: ['wood', 'stone', 'spec'] },
     COLORS: ['#8e5bd6', '#d6453a', '#3aa0d6', '#e0a526', '#3fbf6a', '#d65ba8', '#e07b2a', '#58c9c0'],
+    // Seigneurs jouables. Chaque classe a un atout propre (passive) pour rester différente sans être plus forte.
     CLASSES: {
       lich: {
-        name: 'Liche', title: 'Seigneur des morts', spec: 'Os', specIcon: '🦴',
+        name: 'Liche', icon: '💀', model: 'lich', title: 'Seigneur des morts', spec: 'Os', specIcon: '🦴', fx: [0.5, 1.9, 0.9],
         desc: 'Lance des traits d\'ombre à distance et relève des morts pour combattre.',
+        passive: { name: 'Légion sans fin', desc: 'Serviteurs 20 % moins chers, et les vaincus reviennent 2 fois plus vite.', minionCost: 0.8, revive: 0.5 },
         hp: 120, dmg: 11, range: 13, atkCd: 0.9, speed: 8.5, ranged: true,
         minions: ['skeleton', 'digger', 'archer', 'ghoul', 'zombie', 'abomination'],
         skills: [
-          { id: 'bolt', name: 'Trait d\'ombre', icon: '☄️', cd: 4, desc: 'Gros projectile à longue portée.' },
-          { id: 'nova', name: 'Nova de givre', icon: '❄️', cd: 10, desc: 'Blesse et ralentit tout autour de toi.' },
-          { id: 'raise', name: 'Relever les morts', icon: '💀', cd: 30, desc: 'Invoque 3 squelettes pendant 25 s.' },
+          { id: 'bolt', kind: 'bolt', mult: 2.6, name: 'Trait d\'ombre', icon: '☄️', cd: 4, desc: 'Gros projectile à longue portée.' },
+          { id: 'nova', kind: 'nova', mult: 1.5, r: 8.5, slow: 4000, name: 'Nova de givre', icon: '❄️', cd: 10, desc: 'Blesse et ralentit tout autour de toi.' },
+          { id: 'raise', kind: 'summon', unit: 'raised', n: 3, name: 'Relever les morts', icon: '💀', cd: 30, desc: 'Invoque 3 squelettes pendant 25 s.' },
         ],
         bnames: { throne: 'Trône d\'os', storage: 'Ossuaire', barracks: 'Crypte', altar: 'Autel noir', workshop: 'Atelier funèbre' },
       },
       goblin: {
-        name: 'Roi gobelin', title: 'Chef de la horde', spec: 'Ferraille', specIcon: '⚙️',
+        name: 'Roi gobelin', icon: '👺', model: 'goblin_king', title: 'Chef de la horde', spec: 'Ferraille', specIcon: '⚙️', fx: [2.4, 1.2, 0.3],
         desc: 'Cogne fort au corps à corps, lance des bombes et galvanise sa horde.',
+        passive: { name: 'Mains agiles', desc: 'Récolte 25 % plus rapide pour les serviteurs, et le héros ramasse 3 ressources par coup au lieu de 2.', work: 1.25, heroHarvest: 3 },
         hp: 170, dmg: 15, range: 3.4, atkCd: 0.8, speed: 9, ranged: false,
         minions: ['goblin', 'miner', 'slinger', 'berserker', 'brute', 'wartroll'],
         skills: [
-          { id: 'smash', name: 'Coup de masse', icon: '🔨', cd: 5, desc: 'Frappe lourde qui étourdit devant toi.' },
-          { id: 'bomb', name: 'Bombe', icon: '💣', cd: 9, desc: 'Explosion de zone à distance.' },
-          { id: 'warcry', name: 'Cri de guerre', icon: '📯', cd: 30, desc: 'Renforce tes gobelins 10 s et te soigne.' },
+          { id: 'smash', kind: 'smash', mult: 2.8, r: 4, stun: 1500, name: 'Coup de masse', icon: '🔨', cd: 5, desc: 'Frappe lourde qui étourdit devant toi.' },
+          { id: 'bomb', kind: 'bomb', mult: 2.1, r: 5.5, name: 'Bombe', icon: '💣', cd: 9, desc: 'Explosion de zone à distance.' },
+          { id: 'warcry', kind: 'warcry', name: 'Cri de guerre', icon: '📯', cd: 30, desc: 'Renforce tes serviteurs 10 s et te soigne.' },
         ],
         bnames: { throne: 'Trône de ferraille', storage: 'Réserve', barracks: 'Tanière', altar: 'Totem de guerre', workshop: 'Bricolerie' },
+      },
+      demon: {
+        name: 'Démon', icon: '😈', model: 'demon_lord', title: 'Prince des enfers', spec: 'Soufre', specIcon: '🌋', fx: [2.6, 0.7, 0.2],
+        desc: 'Brûle ses ennemis à distance et appelle des diablotins.',
+        passive: { name: 'Fureur infernale', desc: 'Le héros inflige 15 % de dégâts en plus et se soigne de 4 % des dégâts infligés.', dmg: 1.15, vamp: 0.04 },
+        hp: 135, dmg: 12, range: 11, atkCd: 0.9, speed: 8.7, ranged: true,
+        minions: ['imp', 'borer', 'spitter', 'hound', 'fiend', 'pitlord'],
+        skills: [
+          { id: 'fireball', kind: 'bolt', mult: 2.6, name: 'Boule de feu', icon: '🔥', cd: 4, desc: 'Projectile enflammé à longue portée.' },
+          { id: 'firerain', kind: 'bomb', mult: 2.2, r: 6.5, name: 'Pluie de feu', icon: '🌋', cd: 10, desc: 'Embrase une large zone à distance.' },
+          { id: 'imps', kind: 'summon', unit: 'impling', n: 3, name: 'Meute de diablotins', icon: '👿', cd: 30, desc: 'Invoque 3 diablotins pendant 25 s.' },
+        ],
+        bnames: { throne: 'Trône de braise', storage: 'Fosse aux trésors', barracks: 'Portail infernal', altar: 'Autel de sang', workshop: 'Forge de soufre' },
+      },
+      druid: {
+        name: 'Druide', icon: '🦌', model: 'druid', title: 'Gardien sauvage', spec: 'Sève', specIcon: '🍃', fx: [0.6, 2.0, 0.4],
+        desc: 'Enracine ses ennemis, soigne sa meute et appelle les bêtes.',
+        passive: { name: 'Force de la nature', desc: 'Serviteurs 20 % plus résistants, et le héros récupère sa vie 2 fois plus vite.', mHp: 1.2, regen: 2 },
+        hp: 130, dmg: 10, range: 12, atkCd: 0.9, speed: 8.6, ranged: true,
+        minions: ['sprite', 'forager', 'dryad', 'packwolf', 'bear', 'ancient'],
+        skills: [
+          { id: 'thorns', kind: 'nova', mult: 1.4, r: 8.5, stun: 2000, name: 'Ronces', icon: '🌿', cd: 10, desc: 'Blesse et immobilise tout autour de toi.' },
+          { id: 'heal', kind: 'heal', pct: 0.35, r: 14, name: 'Souffle de vie', icon: '💚', cd: 18, desc: 'Te soigne de 35 %, ainsi que tes serviteurs proches.' },
+          { id: 'pack', kind: 'summon', unit: 'wolfling', n: 3, name: 'Appel de la meute', icon: '🐺', cd: 30, desc: 'Invoque 3 loups pendant 25 s.' },
+        ],
+        bnames: { throne: 'Arbre-trône', storage: 'Grenier', barracks: 'Bosquet', altar: 'Cercle de pierres', workshop: 'Atelier des racines' },
+      },
+      dwarf: {
+        name: 'Seigneur nain', icon: '🧔', model: 'dwarf_lord', title: 'Maître des forges', spec: 'Runes', specIcon: '🔷', fx: [0.5, 1.2, 2.6],
+        desc: 'Solide au corps à corps, il commande des automates et forge mieux que personne.',
+        passive: { name: 'Maître artisan', desc: 'Bâtiments 15 % moins chers et fabrications de l\'atelier 25 % moins chères.', buildCost: 0.85, craftCost: 0.75 },
+        hp: 190, dmg: 14, range: 3.4, atkCd: 0.85, speed: 8.2, ranged: false,
+        minions: ['automaton', 'driller', 'crossbow', 'blade', 'sentinel', 'colossus'],
+        skills: [
+          { id: 'hammer', kind: 'smash', mult: 2.8, r: 4, stun: 1500, name: 'Marteau runique', icon: '🔨', cd: 5, desc: 'Frappe lourde qui étourdit devant toi.' },
+          { id: 'grenade', kind: 'bomb', mult: 2.1, r: 5.5, name: 'Grenade runique', icon: '💥', cd: 9, desc: 'Explosion de zone à distance.' },
+          { id: 'rampart', kind: 'warcry', name: 'Rempart', icon: '🛡️', cd: 30, desc: 'Renforce tes automates 10 s et te soigne.' },
+        ],
+        bnames: { throne: 'Trône de pierre', storage: 'Chambre forte', barracks: 'Hall des automates', altar: 'Enclume sacrée', workshop: 'Grande forge' },
       },
     },
     // Serviteurs. work = vitesse de récolte, range = portée d'attaque (tireurs), unlock = niveau de caserne requis.
@@ -67,6 +109,26 @@
       berserker: { name: 'Berserker', icon: '🔥', tag: 'Assaillant rapide', model: 'berserker', hp: 60, dmg: 15, speed: 9.2, work: 0.3, cost: { spec: 30, gold: 10 }, unlock: 2 },
       brute: { name: 'Brute gobeline', icon: '👹', tag: 'Défenseur robuste', hp: 115, dmg: 12, speed: 6, work: 0.7, cost: { spec: 28, gold: 15 }, unlock: 2 },
       wartroll: { name: 'Troll de guerre', icon: '🦍', tag: 'Colosse', model: 'brute', scale: 1.55, hp: 320, dmg: 23, speed: 5, work: 0.2, cost: { spec: 85, gold: 50, wood: 30 }, unlock: 4 },
+      imp: { name: 'Diablotin', icon: '👿', tag: 'Polyvalent', hp: 38, dmg: 6, speed: 8, work: 1.05, cost: { spec: 13 }, unlock: 0 },
+      borer: { name: 'Diablotin foreur', icon: '⛏️', tag: 'Récolteur expert', model: 'borer', hp: 32, dmg: 3, speed: 8, work: 2, cost: { spec: 22, wood: 15 }, unlock: 1 },
+      spitter: { name: 'Cracheur de feu', icon: '🔥', tag: 'Tireur', model: 'spitter', hp: 30, dmg: 9, speed: 7.5, work: 0.4, range: 10, cost: { spec: 25, stone: 15 }, unlock: 1 },
+      hound: { name: 'Chien des enfers', icon: '🐕', tag: 'Assaillant rapide', model: 'hound', hp: 65, dmg: 16, speed: 9.5, work: 0.2, cost: { spec: 35, gold: 10 }, unlock: 2 },
+      fiend: { name: 'Démon cornu', icon: '👹', tag: 'Défenseur robuste', model: 'fiend', hp: 125, dmg: 12, speed: 5.5, work: 0.6, cost: { spec: 30, gold: 15 }, unlock: 2 },
+      pitlord: { name: 'Seigneur des fosses', icon: '👾', tag: 'Colosse', model: 'fiend', scale: 1.6, hp: 330, dmg: 24, speed: 4.6, work: 0.2, cost: { spec: 90, gold: 50, stone: 30 }, unlock: 4 },
+      sprite: { name: 'Lutin', icon: '🧚', tag: 'Polyvalent', hp: 36, dmg: 5, speed: 8.5, work: 1.1, cost: { spec: 12, wood: 5 }, unlock: 0 },
+      forager: { name: 'Cueilleur sylvestre', icon: '⛏️', tag: 'Récolteur expert', model: 'forager', hp: 32, dmg: 3, speed: 8.5, work: 2, cost: { spec: 22, wood: 15 }, unlock: 1 },
+      dryad: { name: 'Dryade archère', icon: '🏹', tag: 'Tireur', model: 'dryad', hp: 34, dmg: 8, speed: 7.5, work: 0.4, range: 11, cost: { spec: 25, wood: 20 }, unlock: 1 },
+      packwolf: { name: 'Loup de meute', icon: '🐺', tag: 'Assaillant rapide', model: 'wolf', hp: 68, dmg: 15, speed: 9.5, work: 0.2, cost: { spec: 33, gold: 10 }, unlock: 2 },
+      bear: { name: 'Ours', icon: '🐻', tag: 'Défenseur robuste', model: 'bear', hp: 140, dmg: 11, speed: 5.5, work: 0.5, cost: { spec: 32, gold: 15 }, unlock: 2 },
+      ancient: { name: 'Ent ancien', icon: '🌳', tag: 'Colosse', model: 'treant', scale: 1.7, hp: 350, dmg: 21, speed: 4.2, work: 0.2, cost: { spec: 90, gold: 50, wood: 30 }, unlock: 4 },
+      automaton: { name: 'Automate', icon: '🤖', tag: 'Polyvalent', hp: 48, dmg: 6, speed: 6.8, work: 1, cost: { spec: 15, stone: 5 }, unlock: 0 },
+      driller: { name: 'Automate foreur', icon: '⛏️', tag: 'Récolteur expert', model: 'driller', hp: 38, dmg: 3, speed: 7, work: 1.9, cost: { spec: 24, stone: 15 }, unlock: 1 },
+      crossbow: { name: 'Arbalète mécanique', icon: '🎯', tag: 'Tireur', model: 'crossbow', hp: 36, dmg: 8, speed: 6.8, work: 0.4, range: 11, cost: { spec: 25, wood: 20 }, unlock: 1 },
+      blade: { name: 'Lame mécanique', icon: '⚔️', tag: 'Assaillant rapide', model: 'blade', hp: 66, dmg: 15, speed: 8.8, work: 0.3, cost: { spec: 34, gold: 10 }, unlock: 2 },
+      sentinel: { name: 'Sentinelle de pierre', icon: '🗿', tag: 'Défenseur robuste', model: 'golem', scale: 1.05, hp: 140, dmg: 11, speed: 5, work: 0.6, cost: { spec: 30, gold: 15 }, unlock: 2 },
+      colossus: { name: 'Colosse de fer', icon: '🛠️', tag: 'Colosse', model: 'golem', scale: 1.7, hp: 350, dmg: 22, speed: 4.2, work: 0.2, cost: { spec: 90, gold: 50, stone: 30 }, unlock: 4 },
+      impling: { name: 'Diablotin invoqué', icon: '👿', tag: '', model: 'imp', hp: 55, dmg: 9, speed: 8.5, work: 0, cost: {}, unlock: 99 },
+      wolfling: { name: 'Loup invoqué', icon: '🐺', tag: '', model: 'wolf', hp: 60, dmg: 9, speed: 9, work: 0, cost: {}, unlock: 99 },
       raised: { name: 'Squelette relevé', icon: '💀', tag: '', hp: 60, dmg: 9, speed: 8, work: 0, cost: {}, unlock: 99 },
     },
     ROLES: {
@@ -134,12 +196,17 @@
     PLOTS: { throne: [0, -15], storage: [-14, -3], barracks: [14, -3], altar: [-11, 9], workshop: [11, 9] },
     FORT: { wall: 24, spawn: [0, 8], zone: 36 },
     // Formules communes.
-    cost(b, lvl) {
-      const base = DATA.BUILDINGS[b].cost, L = b === 'throne' ? lvl - 1 : lvl, out = {};
-      for (const k in base) out[k] = Math.round(base[k] * Math.pow(1.9, L) / 5) * 5;
+    cost(b, lvl, cls) {
+      const base = DATA.BUILDINGS[b].cost, L = b === 'throne' ? lvl - 1 : lvl, k = ((DATA.CLASSES[cls] || {}).passive || {}).buildCost || 1, out = {};
+      for (const r in base) out[r] = Math.max(5, Math.round(base[r] * Math.pow(1.9, L) * k / 5) * 5);
       return out;
     },
-    craftCost(id, tier) { const base = DATA.CRAFTS[id].cost, out = {}; for (const k in base) out[k] = Math.round(base[k] * Math.pow(1.8, tier) / 5) * 5; return out; },
+    minionCost(mt, cls) {
+      const base = DATA.MINIONS[mt].cost, k = ((DATA.CLASSES[cls] || {}).passive || {}).minionCost || 1, out = {};
+      for (const r in base) out[r] = Math.max(1, Math.round(base[r] * k));
+      return out;
+    },
+    craftCost(id, tier, cls) { const base = DATA.CRAFTS[id].cost, k = ((DATA.CLASSES[cls] || {}).passive || {}).craftCost || 1, out = {}; for (const r in base) out[r] = Math.max(5, Math.round(base[r] * Math.pow(1.8, tier) * k / 5) * 5); return out; },
     xpNeed(lvl) { return Math.round(40 * Math.pow(lvl, 1.6)); },
     cap(b) { return 250 + 300 * (b.storage || 0); },
     minionCap(b) { return 4 + 3 * (b.barracks || 0); },

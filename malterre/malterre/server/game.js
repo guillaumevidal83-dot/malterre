@@ -155,15 +155,16 @@ class Game {
   ownerKey(e) { return !e ? null : e.k === 0 ? e.key : e.k === 1 ? e.owner : null; }
   // Tous les bonus d'un joueur : bâtiments, fabrications de l'atelier et reliques équipées.
   stats(rec) {
-    const c = rec.craft || {}, eq = rec.eq || {}, b = rec.b, has = id => eq.h === id || eq.m === id || eq.f === id;
+    const c = rec.craft || {}, eq = rec.eq || {}, b = rec.b, has = id => eq.h === id || eq.m === id || eq.f === id, p = D.CLASSES[rec.cls].passive || {};
     return {
       hp: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.armor || 0)) * (has('h_stone') ? 1.3 : 1),
-      dmg: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.weapon || 0)) * (has('h_fury') ? 1.2 : 1),
-      speed: 1 + 0.04 * (c.boots || 0), cd: has('h_haste') ? 0.75 : 1, vamp: has('h_vamp') ? 0.08 : 0, regen: has('f_regen') ? 3 : 1,
-      mHp: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.marmor || 0)) * (has('m_iron') ? 1.4 : 1),
+      dmg: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.weapon || 0)) * (has('h_fury') ? 1.2 : 1) * (p.dmg || 1),
+      speed: 1 + 0.04 * (c.boots || 0), cd: has('h_haste') ? 0.75 : 1, vamp: (has('h_vamp') ? 0.08 : 0) + (p.vamp || 0), regen: (has('f_regen') ? 3 : 1) * (p.regen || 1),
+      mHp: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.marmor || 0)) * (has('m_iron') ? 1.4 : 1) * (p.mHp || 1),
       mDmg: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.mweapon || 0)) * (has('m_venom') ? 1.3 : 1),
       mSpeed: has('m_swift') ? 1.25 : 1,
-      work: (1 + 0.2 * (b.workshop || 0)) * (1 + 0.15 * (c.tools || 0)) * (has('m_swift') ? 1.25 : 1),
+      work: (1 + 0.2 * (b.workshop || 0)) * (1 + 0.15 * (c.tools || 0)) * (has('m_swift') ? 1.25 : 1) * (p.work || 1),
+      revive: p.revive || 1, heroHarvest: p.heroHarvest || D.HERO_HARVEST,
       carry: 5 + (b.workshop || 0) + (has('f_harvest') ? 2 : 0),
       cap: Math.round(D.cap(b) * (has('f_vault') ? 1.5 : 1)), mcap: D.minionCap(b) + (has('m_swarm') ? 3 : 0),
       gar: has('f_ward') ? 1.5 : 1, lootTaken: has('f_ward') ? 0.5 : 1,
@@ -280,7 +281,7 @@ class Game {
       const sess = this.online.get(tgt.owner);
       if (sess) {
         sess.minions = sess.minions.filter(m => m !== tgt);
-        if (!tgt.temp) { tgt.rec.deadUntil = t + this.cfg.minionRevive * 1000; sess.dirty = true; }
+        if (!tgt.temp) { tgt.rec.deadUntil = t + this.cfg.minionRevive * 1000 * sess.st.revive; sess.dirty = true; }
       }
     } else {
       tgt.dead = true; tgt.hp = 0; tgt.a = 0; tgt.respawnAt = t + this.cfg.playerRespawn * 1000;
@@ -658,7 +659,7 @@ class Game {
       let node = null, nd = 3.6;
       for (const n of this.nodes) { if (Math.abs(n.x - e.x) > 4 || Math.abs(n.z - e.z) > 4) continue; const d = Math.hypot(n.x - e.x, n.z - e.z); if (d < nd && this.nodeStock(n) > 0) { nd = d; node = n; } }
       if (node) {
-        const res = D.NODES[node.type].res, got = this.takeNode(node, D.HERO_HARVEST);
+        const res = D.NODES[node.type].res, got = this.takeNode(node, sess.st.heroHarvest);
         e.nextAtk = t + 800; e.r = Math.atan2(node.x - e.x, node.z - e.z);
         this.addRes(sess.rec, res, got); sess.dirty = true;
         this.ev(e.x, e.z, ['fx', 'chop', node.x, node.z, got, e.id, res]);
@@ -678,31 +679,35 @@ class Game {
     if (!sk || e.dead || t < e.cds[i]) return;
     const dmg = this.heroDmg(sess), fx = (name, x, z, r, x2, z2) => this.ev(e.x, e.z, ['fx', name, Math.round(x * 10) / 10, Math.round(z * 10) / 10, r, e.id, x2, z2]);
     const mobsNear = (x, z, r) => [...this.ents.values()].filter(o => this.foe(e, o) && Math.hypot(o.x - x, o.z - z) - o.rad < r);
-    if (sk.id === 'bolt') {
+    if (sk.kind === 'bolt') {
       const tg = this.pickTarget(e, 20, 0);
       if (!tg) return this.send(sess, { t: 'err', m: 'Aucune cible à portée.' });
       e.r = Math.atan2(tg.x - e.x, tg.z - e.z); sess.tgt = tg;
       fx('bolt', e.x, e.z, 0, Math.round(tg.x * 10) / 10, Math.round(tg.z * 10) / 10);
-      this.damage(e, tg, dmg * 2.6 * rnd(0.9, 1.1), 's', true);
-    } else if (sk.id === 'nova') {
-      fx('nova', e.x, e.z, 8.5);
-      for (const o of mobsNear(e.x, e.z, 8.5)) { o.slowUntil = t + 4000; this.damage(e, o, dmg * 1.5 * rnd(0.9, 1.1), 's'); }
-    } else if (sk.id === 'raise') {
+      this.damage(e, tg, dmg * sk.mult * rnd(0.9, 1.1), 's', true);
+    } else if (sk.kind === 'nova') {
+      fx('nova', e.x, e.z, sk.r);
+      for (const o of mobsNear(e.x, e.z, sk.r)) { if (sk.slow) o.slowUntil = t + sk.slow; if (sk.stun) o.stunUntil = t + sk.stun; this.damage(e, o, dmg * sk.mult * rnd(0.9, 1.1), 's'); }
+    } else if (sk.kind === 'summon') {
       fx('raise', e.x, e.z, 4);
-      for (let n = 0; n < 3; n++) this.spawnMinion(sess, { t: 'raised', role: 'escort' }, true);
-    } else if (sk.id === 'smash') {
+      for (let n = 0; n < sk.n; n++) this.spawnMinion(sess, { t: sk.unit, role: 'escort' }, true);
+    } else if (sk.kind === 'smash') {
       const px = e.x + Math.sin(e.r) * 2.5, pz = e.z + Math.cos(e.r) * 2.5;
-      fx('smash', px, pz, 4);
-      for (const o of mobsNear(px, pz, 4)) { o.stunUntil = t + 1500; this.damage(e, o, dmg * 2.8 * rnd(0.9, 1.1), 's', true); }
-    } else if (sk.id === 'bomb') {
+      fx('smash', px, pz, sk.r);
+      for (const o of mobsNear(px, pz, sk.r)) { o.stunUntil = t + sk.stun; this.damage(e, o, dmg * sk.mult * rnd(0.9, 1.1), 's', true); }
+    } else if (sk.kind === 'bomb') {
       const tg = this.pickTarget(e, 16, 0);
       const px = tg ? tg.x : e.x + Math.sin(e.r) * 9, pz = tg ? tg.z : e.z + Math.cos(e.r) * 9;
       if (tg) { e.r = Math.atan2(tg.x - e.x, tg.z - e.z); sess.tgt = tg; }
-      fx('bomb', px, pz, 5.5);
-      for (const o of mobsNear(px, pz, 5.5)) this.damage(e, o, dmg * 2.1 * rnd(0.9, 1.1), 's');
-    } else if (sk.id === 'warcry') {
+      fx('bomb', px, pz, sk.r);
+      for (const o of mobsNear(px, pz, sk.r)) this.damage(e, o, dmg * sk.mult * rnd(0.9, 1.1), 's');
+    } else if (sk.kind === 'warcry') {
       e.buffUntil = t + 10000; e.hp = Math.min(e.mh, e.hp + e.mh * 0.15);
       fx('warcry', e.x, e.z, 12);
+    } else if (sk.kind === 'heal') {
+      e.hp = Math.min(e.mh, e.hp + e.mh * sk.pct);
+      for (const m of sess.minions) if (dist(m, e) < sk.r) m.hp = Math.min(m.mh, m.hp + m.mh * sk.pct);
+      fx('heal', e.x, e.z, sk.r);
     }
     e.a = 2; e.atkAnim = t + 400;
     const cd = sk.cd * sess.st.cd;
@@ -717,7 +722,7 @@ class Game {
     if (lvl >= def.max) return err('Niveau maximum atteint.');
     if (b !== 'throne' && lvl >= rec.b.throne) return err('Améliore d\'abord ton trône.');
     if (b === 'throne' && rec.lvl < D.throneNeed(lvl)) return err('Ton héros doit être niveau ' + D.throneNeed(lvl) + '.');
-    const cost = D.cost(b, lvl);
+    const cost = D.cost(b, lvl, rec.cls);
     for (const r in cost) if ((rec.res[r] || 0) < cost[r]) return err('Ressources insuffisantes.');
     for (const r in cost) rec.res[r] -= cost[r];
     rec.b[b] = lvl + 1;
@@ -734,8 +739,9 @@ class Game {
     if (!def || !D.CLASSES[rec.cls].minions.includes(mt)) return;
     if ((rec.b.barracks || 0) < def.unlock) return err('Bâtiment niveau ' + def.unlock + ' requis.');
     if (rec.minions.length >= sess.st.mcap) return err('Limite de serviteurs atteinte.');
-    for (const r in def.cost) if ((rec.res[r] || 0) < def.cost[r]) return err('Ressources insuffisantes.');
-    for (const r in def.cost) rec.res[r] -= def.cost[r];
+    const mc = D.minionCost(mt, rec.cls);
+    for (const r in mc) if ((rec.res[r] || 0) < mc[r]) return err('Ressources insuffisantes.');
+    for (const r in mc) rec.res[r] -= mc[r];
     const m = { t: mt, role: 'guard' };
     rec.minions.push(m);
     const e = this.spawnMinion(sess, m);
@@ -762,7 +768,7 @@ class Game {
     let i = rec.minions.findIndex(m => m.t === mt && m.role === 'guard');
     if (i < 0) i = rec.minions.findIndex(m => m.t === mt);
     if (i < 0) return;
-    const [m] = rec.minions.splice(i, 1), e = sess.minions.find(x => x.rec === m), cost = D.MINIONS[mt].cost;
+    const [m] = rec.minions.splice(i, 1), e = sess.minions.find(x => x.rec === m), cost = D.minionCost(mt, rec.cls);
     if (e) { this.ev(e.x, e.z, ['d', e.id, 1, e.t]); this.ev(e.x, e.z, ['fx', 'summon', Math.round(e.x), Math.round(e.z), 2, sess.ent.id]); this.ents.delete(e.id); sess.minions = sess.minions.filter(x => x !== e); }
     for (const r in cost) this.addRes(rec, r, Math.floor(cost[r] * this.cfg.refund));
     sess.dirty = true;
@@ -785,7 +791,7 @@ class Game {
     const tier = rec.craft[id] || 0;
     if (tier >= D.CRAFT_MAX) return err('Palier maximum atteint.');
     if (tier >= (rec.b.workshop || 0)) return err('Atelier niveau ' + (tier + 1) + ' requis.');
-    const cost = D.craftCost(id, tier);
+    const cost = D.craftCost(id, tier, rec.cls);
     for (const r in cost) if ((rec.res[r] || 0) < cost[r]) return err('Ressources insuffisantes.');
     for (const r in cost) rec.res[r] -= cost[r];
     rec.craft[id] = tier + 1;
