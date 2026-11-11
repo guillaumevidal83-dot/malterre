@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.3.0',
+    VERSION: '0.3.1',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
@@ -32,7 +32,7 @@
         name: 'Liche', title: 'Seigneur des morts', spec: 'Os', specIcon: '🦴',
         desc: 'Lance des traits d\'ombre à distance et relève des morts pour combattre.',
         hp: 120, dmg: 11, range: 13, atkCd: 0.9, speed: 8.5, ranged: true,
-        minions: ['skeleton', 'zombie'],
+        minions: ['skeleton', 'digger', 'archer', 'ghoul', 'zombie', 'abomination'],
         skills: [
           { id: 'bolt', name: 'Trait d\'ombre', icon: '☄️', cd: 4, desc: 'Gros projectile à longue portée.' },
           { id: 'nova', name: 'Nova de givre', icon: '❄️', cd: 10, desc: 'Blesse et ralentit tout autour de toi.' },
@@ -44,7 +44,7 @@
         name: 'Roi gobelin', title: 'Chef de la horde', spec: 'Ferraille', specIcon: '⚙️',
         desc: 'Cogne fort au corps à corps, lance des bombes et galvanise sa horde.',
         hp: 170, dmg: 15, range: 3.4, atkCd: 0.8, speed: 9, ranged: false,
-        minions: ['goblin', 'brute'],
+        minions: ['goblin', 'miner', 'slinger', 'berserker', 'brute', 'wartroll'],
         skills: [
           { id: 'smash', name: 'Coup de masse', icon: '🔨', cd: 5, desc: 'Frappe lourde qui étourdit devant toi.' },
           { id: 'bomb', name: 'Bombe', icon: '💣', cd: 9, desc: 'Explosion de zone à distance.' },
@@ -53,29 +53,45 @@
         bnames: { throne: 'Trône de ferraille', storage: 'Réserve', barracks: 'Tanière', altar: 'Totem de guerre', workshop: 'Bricolerie' },
       },
     },
+    // Serviteurs. work = vitesse de récolte, range = portée d'attaque (tireurs), unlock = niveau de caserne requis.
     MINIONS: {
-      skeleton: { name: 'Squelette', hp: 45, dmg: 6, speed: 7, work: 1, cost: { spec: 15 }, unlock: 0 },
-      zombie: { name: 'Zombie', hp: 130, dmg: 11, speed: 4.6, work: 0.6, cost: { spec: 30, gold: 15 }, unlock: 2 },
-      goblin: { name: 'Gobelin', hp: 32, dmg: 5, speed: 8.5, work: 1.2, cost: { spec: 10, wood: 5 }, unlock: 0 },
-      brute: { name: 'Brute gobeline', hp: 115, dmg: 12, speed: 6, work: 0.7, cost: { spec: 28, gold: 15 }, unlock: 2 },
-      raised: { name: 'Squelette relevé', hp: 60, dmg: 9, speed: 8, work: 0, cost: {}, unlock: 99 },
+      skeleton: { name: 'Squelette', icon: '💀', tag: 'Polyvalent', hp: 45, dmg: 6, speed: 7, work: 1, cost: { spec: 15 }, unlock: 0 },
+      digger: { name: 'Fossoyeur', icon: '⛏️', tag: 'Récolteur expert', model: 'digger', hp: 35, dmg: 3, speed: 7.5, work: 1.9, cost: { spec: 25, wood: 15 }, unlock: 1 },
+      archer: { name: 'Squelette archer', icon: '🏹', tag: 'Tireur', model: 'archer', hp: 35, dmg: 8, speed: 7, work: 0.4, range: 11, cost: { spec: 25, wood: 20 }, unlock: 1 },
+      ghoul: { name: 'Goule', icon: '👻', tag: 'Assaillant rapide', model: 'ghoul', hp: 70, dmg: 16, speed: 8.8, work: 0.3, cost: { spec: 35, gold: 10 }, unlock: 2 },
+      zombie: { name: 'Zombie', icon: '🧟', tag: 'Défenseur robuste', hp: 130, dmg: 11, speed: 4.6, work: 0.6, cost: { spec: 30, gold: 15 }, unlock: 2 },
+      abomination: { name: 'Abomination', icon: '👾', tag: 'Colosse', model: 'zombie', scale: 1.6, hp: 340, dmg: 22, speed: 4.2, work: 0.2, cost: { spec: 90, gold: 50, stone: 30 }, unlock: 4 },
+      goblin: { name: 'Gobelin', icon: '👺', tag: 'Polyvalent', hp: 32, dmg: 5, speed: 8.5, work: 1.2, cost: { spec: 10, wood: 5 }, unlock: 0 },
+      miner: { name: 'Gobelin mineur', icon: '⛏️', tag: 'Récolteur expert', model: 'miner', hp: 30, dmg: 3, speed: 8.5, work: 2.1, cost: { spec: 20, wood: 15 }, unlock: 1 },
+      slinger: { name: 'Lance-pierre', icon: '🎯', tag: 'Tireur', model: 'slinger', hp: 28, dmg: 7, speed: 8.5, work: 0.4, range: 10, cost: { spec: 20, stone: 15 }, unlock: 1 },
+      berserker: { name: 'Berserker', icon: '🔥', tag: 'Assaillant rapide', model: 'berserker', hp: 60, dmg: 15, speed: 9.2, work: 0.3, cost: { spec: 30, gold: 10 }, unlock: 2 },
+      brute: { name: 'Brute gobeline', icon: '👹', tag: 'Défenseur robuste', hp: 115, dmg: 12, speed: 6, work: 0.7, cost: { spec: 28, gold: 15 }, unlock: 2 },
+      wartroll: { name: 'Troll de guerre', icon: '🦍', tag: 'Colosse', model: 'brute', scale: 1.55, hp: 320, dmg: 23, speed: 5, work: 0.2, cost: { spec: 85, gold: 50, wood: 30 }, unlock: 4 },
+      raised: { name: 'Squelette relevé', icon: '💀', tag: '', hp: 60, dmg: 9, speed: 8, work: 0, cost: {}, unlock: 99 },
     },
     ROLES: {
       wood: { name: 'Bois', icon: '🌲' }, stone: { name: 'Pierre', icon: '🧱' }, gold: { name: 'Or', icon: '💰' },
       spec: { name: 'Spécial', icon: '✨' }, escort: { name: 'Escorte', icon: '⚔️' }, guard: { name: 'Garde', icon: '🛡️' },
     },
+    // Monstres. Chaque famille donne sa ressource : bêtes = os/ferraille, humanoïdes = or, esprits des bois = bois, êtres de roche = pierre.
     MOBS: {
-      wolf: { name: 'Loup', tier: 1, hp: 40, dmg: 5, speed: 7.5, range: 1.8, aggro: 9, cd: 1.3, xp: 8, gold: [0, 2], spec: [1, 3], rad: 0.8 },
-      boar: { name: 'Sanglier', tier: 1, hp: 65, dmg: 7, speed: 6.5, range: 1.8, aggro: 6, cd: 1.5, xp: 11, gold: [0, 2], spec: [2, 4], rad: 0.9 },
-      bandit: { name: 'Bandit', tier: 1, hp: 55, dmg: 8, speed: 6.5, range: 2, aggro: 10, cd: 1.3, xp: 13, gold: [3, 8], spec: [1, 3], rad: 0.7 },
-      spider: { name: 'Araignée géante', tier: 2, hp: 120, dmg: 13, speed: 7.5, range: 2.2, aggro: 11, cd: 1.2, xp: 26, gold: [1, 4], spec: [3, 6], rad: 1.1 },
-      orc: { name: 'Orc', tier: 2, hp: 175, dmg: 17, speed: 6.5, range: 2.4, aggro: 12, cd: 1.5, xp: 34, gold: [5, 12], spec: [3, 7], rad: 0.9 },
-      knight: { name: 'Chevalier déchu', tier: 3, hp: 380, dmg: 28, speed: 6.5, range: 2.6, aggro: 14, cd: 1.4, xp: 75, gold: [10, 22], spec: [6, 12], rad: 0.9, relic: 0.04 },
-      broodmother: { name: 'Mère des araignées', model: 'spider', scale: 2.2, tier: 2, hp: 1900, dmg: 30, speed: 6.5, range: 3.4, aggro: 14, cd: 1.5, xp: 380, gold: [40, 70], spec: [30, 50], rad: 2.4, elite: true, relic: 0.6 },
-      warlord: { name: 'Seigneur de guerre orc', model: 'orc', scale: 1.8, tier: 2, hp: 2300, dmg: 42, speed: 6, range: 3.4, aggro: 14, cd: 1.7, xp: 450, gold: [50, 90], spec: [35, 55], rad: 1.7, elite: true, relic: 0.6 },
-      troll: { name: 'Troll', tier: 3, hp: 750, dmg: 38, speed: 5.5, range: 3.2, aggro: 14, cd: 1.9, xp: 170, gold: [20, 40], spec: [12, 22], rad: 1.6, elite: true, relic: 0.25 },
-      guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], rad: 3.4, boss: true, relic: 1 },
+      wolf: { name: 'Loup', tier: 1, hp: 40, dmg: 5, speed: 7.5, range: 1.8, aggro: 9, cd: 1.3, xp: 8, spec: [2, 4], rad: 0.8 },
+      boar: { name: 'Sanglier', tier: 1, hp: 65, dmg: 7, speed: 6.5, range: 1.8, aggro: 6, cd: 1.5, xp: 11, spec: [3, 6], rad: 0.9 },
+      bandit: { name: 'Bandit', tier: 1, hp: 55, dmg: 8, speed: 6.5, range: 2, aggro: 10, cd: 1.3, xp: 13, gold: [5, 11], rad: 0.7 },
+      spriggan: { name: 'Spriggan', model: 'treant', scale: 0.75, tier: 1, hp: 50, dmg: 6, speed: 7, range: 1.8, aggro: 8, cd: 1.3, xp: 11, wood: [7, 13], rad: 0.6 },
+      rockling: { name: 'Rocaille', model: 'golem', scale: 0.7, tier: 1, hp: 80, dmg: 6, speed: 5, range: 1.8, aggro: 7, cd: 1.6, xp: 12, stone: [7, 13], rad: 0.7 },
+      wanderer: { name: 'Mort errant', model: 'ghoul', tier: 1, hp: 50, dmg: 7, speed: 5.5, range: 1.8, aggro: 9, cd: 1.4, xp: 12, spec: [7, 13], rad: 0.6 },
+      spider: { name: 'Araignée géante', tier: 2, hp: 120, dmg: 13, speed: 7.5, range: 2.2, aggro: 11, cd: 1.2, xp: 26, spec: [6, 11], rad: 1.1 },
+      orc: { name: 'Orc', tier: 2, hp: 175, dmg: 17, speed: 6.5, range: 2.4, aggro: 12, cd: 1.5, xp: 34, gold: [10, 20], spec: [2, 5], rad: 0.9 },
+      treant: { name: 'Ent', model: 'treant', scale: 1.9, tier: 2, hp: 330, dmg: 20, speed: 4.8, range: 3, aggro: 10, cd: 1.8, xp: 45, wood: [25, 40], rad: 1.4 },
+      golem: { name: 'Golem de pierre', model: 'golem', scale: 1.6, tier: 2, hp: 380, dmg: 22, speed: 4.5, range: 3, aggro: 10, cd: 1.9, xp: 48, stone: [25, 40], rad: 1.4 },
+      broodmother: { name: 'Mère des araignées', model: 'spider', scale: 2.2, tier: 2, hp: 1900, dmg: 30, speed: 6.5, range: 3.4, aggro: 14, cd: 1.5, xp: 380, gold: [20, 40], spec: [60, 90], rad: 2.4, elite: true, relic: 0.6 },
+      warlord: { name: 'Seigneur de guerre orc', model: 'orc', scale: 1.8, tier: 2, hp: 2300, dmg: 42, speed: 6, range: 3.4, aggro: 14, cd: 1.7, xp: 450, gold: [80, 130], spec: [20, 30], rad: 1.7, elite: true, relic: 0.6 },
+      knight: { name: 'Chevalier déchu', tier: 3, hp: 380, dmg: 28, speed: 6.5, range: 2.6, aggro: 14, cd: 1.4, xp: 75, gold: [18, 32], spec: [5, 10], rad: 0.9, relic: 0.04 },
+      troll: { name: 'Troll', tier: 3, hp: 750, dmg: 38, speed: 5.5, range: 3.2, aggro: 14, cd: 1.9, xp: 170, gold: [20, 40], spec: [12, 22], stone: [20, 35], rad: 1.6, elite: true, relic: 0.25 },
+      guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], wood: [100, 140], stone: [100, 140], rad: 3.4, boss: true, relic: 1 },
     },
+    LOOT_KEYS: ['gold', 'spec', 'wood', 'stone'],
     NODES: {
       tree: { name: 'Arbre', res: 'wood', stock: 40 }, rock: { name: 'Rocher', res: 'stone', stock: 40 },
       vein: { name: 'Filon d\'or', res: 'gold', stock: 25 }, remains: { name: 'Vestiges', res: 'spec', stock: 30 },

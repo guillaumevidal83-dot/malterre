@@ -93,6 +93,8 @@ class Game {
     };
     packs('wolf', 34, 2, 3, W.tier1 + 5, RAD - 12, 50); packs('boar', 24, 1, 2, W.tier1 + 5, RAD - 12, 46); packs('bandit', 20, 2, 3, W.tier1 + 5, RAD - 12, 55);
     packs('wolf', 16, 1, 1, W.tier1 + 10, RAD - 20, 42, true);
+    packs('spriggan', 18, 2, 3, W.tier1 + 5, RAD - 12, 46); packs('rockling', 16, 1, 2, W.tier1 + 5, RAD - 12, 46); packs('wanderer', 16, 2, 3, W.tier1 + 5, RAD - 12, 50);
+    packs('treant', 14, 1, 2, W.tier2 + 5, W.tier1 - 5, 0); packs('golem', 14, 1, 2, W.tier2 + 5, W.tier1 - 5, 0);
     packs('spider', 26, 2, 3, W.tier2 + 5, W.tier1 - 5, 0); packs('orc', 24, 2, 2, W.tier2 + 5, W.tier1 - 5, 0);
     packs('broodmother', 3, 1, 1, W.tier2 + 20, W.tier1 - 20, 0); packs('warlord', 3, 1, 1, W.tier2 + 10, W.tier1 - 30, 0);
     packs('knight', 16, 2, 2, 24, W.tier2 - 4, 0); packs('troll', 10, 1, 1, 24, W.tier2 - 6, 0);
@@ -196,11 +198,11 @@ class Game {
   fight(m, speed, dmg, dt, t) {
     if (m.tgt && !this.alive(m.tgt)) m.tgt = null;
     const tg = m.tgt; if (!tg) return false;
-    const d = dist(m, tg), reach = 1.8 + (tg.rad || 0.5);
+    const d = dist(m, tg), rng = m.def.range || 1.8, reach = rng + (tg.rad || 0.5);
     if (d > reach) { this.move(m, tg.x, tg.z, speed, dt); m.a = 1; }
     else {
       m.r = Math.atan2(tg.x - m.x, tg.z - m.z);
-      if (t >= m.nextAtk) { m.nextAtk = t + 1100; m.atkAnim = t + 300; this.damage(m, tg, dmg * rnd(0.85, 1.15), 'm'); }
+      if (t >= m.nextAtk) { m.nextAtk = t + 1100; m.atkAnim = t + 300; this.damage(m, tg, dmg * rnd(0.85, 1.15), rng > 3 ? 'b' : 'm'); }
       m.a = t < m.atkAnim ? 2 : 0;
     }
     return true;
@@ -255,10 +257,10 @@ class Game {
       for (const key in tgt.dmgBy) {
         const sess = this.online.get(key);
         if (!sess || (!def.boss && dist(sess.ent, tgt) > 70)) continue;
-        const xp = Math.round(def.xp * cfg.xpMult), gold = Math.round(irnd(def.gold[0], def.gold[1]) * cfg.lootMult), spec = Math.round(irnd(def.spec[0], def.spec[1]) * cfg.lootMult);
-        this.addRes(sess.rec, 'gold', gold); this.addRes(sess.rec, 'spec', spec);
+        const xp = Math.round(def.xp * cfg.xpMult), loot = {};
+        for (const r of D.LOOT_KEYS) if (def[r]) { const n = Math.round(irnd(def[r][0], def[r][1]) * cfg.lootMult); if (n > 0) { this.addRes(sess.rec, r, n); loot[r] = n; } }
         sess.rec.kills = (sess.rec.kills || 0) + 1;
-        this.ev(tgt.x, tgt.z, ['lt', xp, gold, spec, Math.round(tgt.x), Math.round(tgt.z)], sess);
+        this.ev(tgt.x, tgt.z, ['lt', xp, loot, Math.round(tgt.x), Math.round(tgt.z)], sess);
         this.addXp(sess, xp);
         const chance = (def.relic !== undefined ? def.relic : def.tier >= 2 ? 0.012 : 0.004) * cfg.relicMult;
         if (Math.random() < chance) this.giveRelic(sess);

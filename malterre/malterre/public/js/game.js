@@ -165,10 +165,9 @@
       else if (name === 'loot') { ring(x, z, 1, 8, 1, [2.4, 1.8, 0.4]); burst(x, 1, z, [2.4, 1.8, 0.4], 40, 8); sfx('build', x, z); }
       else if (name === 'summon') { ring(x, z, 0.3, 2.6, 0.6, [0.5, 1.8, 0.9]); burst(x, 1, z, [0.5, 1.8, 0.9], 14, 3); sfx('summon', x, z); if (mine) Sound.vibrate(30); }
     } else if (k === 'lt') {
-      const me = S.me, spec = me ? D.CLASSES[me.cls].specIcon : '✨';
-      floatText(ev[4], 3.2, ev[5], '+' + ev[1] + ' XP', '#c9a6ff', 15, 1.6);
-      const bits = []; if (ev[2]) bits.push('+' + ev[2] + ' 💰'); if (ev[3]) bits.push('+' + ev[3] + ' ' + spec);
-      if (bits.length) floatText(ev[4], 2.3, ev[5], bits.join('  '), '#ffe29a', 14, 1.6);
+      floatText(ev[3], 3.2, ev[4], '+' + ev[1] + ' XP', '#c9a6ff', 15, 1.6);
+      const bits = Object.keys(ev[2]).map(r => '+' + ev[2][r] + ' ' + resIcon(r));
+      if (bits.length) floatText(ev[3], 2.3, ev[4], bits.join('  '), '#ffe29a', 14, 1.6);
       sfx('loot');
     } else if (k === 'lv') {
       const e = S.ents.get(ev[1]); if (!e) return;
@@ -309,7 +308,7 @@
         const def = D.MINIONS[mt], locked = (me.b.barracks || 0) < def.unlock, full = me.minions.length >= me.mcap;
         let ok = !locked && !full; for (const r in def.cost) if ((me.res[r] || 0) < def.cost[r]) ok = false;
         const n = me.minions.filter(m => m[0] === mt).length;
-        h += '<div class="card"><div class="big">' + MICON[mt] + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p>Vie ' + def.hp + ' · Dégâts ' + def.dmg + ' · ' + (def.work >= 1 ? 'bon ouvrier' : 'bon combattant') + '</p>' + costHtml(def.cost) +
+        h += '<div class="card"><div class="big">' + def.icon + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p><b style="color:var(--acc)">' + def.tag + '</b> · Vie ' + def.hp + ' · Dégâts ' + def.dmg + (def.range ? ' · Portée ' + def.range : '') + ' · Récolte ×' + def.work + '</p>' + costHtml(def.cost) +
           (locked ? '<p style="color:var(--bad)">' + esc(cls.bnames.barracks) + ' niveau ' + def.unlock + ' requis</p>' : full ? '<p style="color:var(--bad)">Limite atteinte : améliore ' + esc(cls.bnames.barracks) + '</p>' : '') + '</div>' +
           '<div class="side"><button class="btn' + (ok ? ' gold' : '') + '" data-act="summon" data-arg="' + mt + '"' + (ok ? '' : ' disabled') + '>Invoquer</button>' +
           (n ? '<button class="btn red small" data-act="dismiss" data-arg="' + mt + '">Sacrifier</button>' : '') + '</div></div>';
@@ -483,8 +482,8 @@
 
   /* ================= Rendu ================= */
   const MM = M4.create(), PM = M4.create(), TINT = [1, 1, 1];
-  const modelOf = e => e.k === 0 ? (e.t === 'goblin' ? 'goblin_king' : 'lich') : e.k === 2 ? (D.MOBS[e.t].model || e.t) : e.t;
-  const mscale = e => Models.get(modelOf(e)).s * (e.k === 2 ? (D.MOBS[e.t].scale || 1) : 1);
+  const modelOf = e => e.k === 0 ? (e.t === 'goblin' ? 'goblin_king' : 'lich') : e.k === 2 ? (D.MOBS[e.t].model || e.t) : (D.MINIONS[e.t].model || e.t);
+  const mscale = e => Models.get(modelOf(e)).s * (e.k === 2 ? (D.MOBS[e.t].scale || 1) : e.k === 1 ? (D.MINIONS[e.t].scale || 1) : 1);
   function drawEnt(e, x, z, shadows) {
     const mdl = Models.get(modelOf(e)), t = S.time;
     const grow = Math.min(1, (t - e.born) * 4 + 0.2), s = mscale(e) * grow;

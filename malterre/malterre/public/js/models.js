@@ -13,6 +13,8 @@ const Models = (function () {
     else if (kind === 'sword' || kind === 'dagger') { const L = kind === 'sword' ? 1.1 : 0.55; g.at(0, y, 0.12 + L / 2).box(0.08, 0.04, L, STEEL); g.at(0, y, 0.12).box(0.32, 0.07, 0.07, WOOD); }
     else if (kind === 'club') { g.at(0, y, 0.55).box(0.14, 0.14, 0.9, WOOD); g.at(0, y, 1.05).box(0.34, 0.34, 0.42, mul(WOOD, 0.7)); g.at(0, y + 0.2, 1.05).cyl(0.06, 0, 0.18, 4, STEEL); }
     else if (kind === 'axe') { g.at(0, y, 0.6).box(0.1, 0.1, 1.2, WOOD); g.at(0, y + 0.18, 1.05).box(0.06, 0.5, 0.42, STEEL); }
+    else if (kind === 'pick') { g.at(0, y, 0.5).box(0.09, 0.09, 1.0, WOOD); g.at(0, y, 1.0).box(0.08, 0.7, 0.12, STEEL); }
+    else if (kind === 'bow') { g.at(0, y, 0.25).box(0.06, 1.3, 0.06, WOOD); g.at(0, y, 0.12).box(0.02, 1.2, 0.02, [0.9, 0.9, 0.85]); }
     else if (kind === 'mace') { g.at(0, y, 0.6).box(0.12, 0.12, 1.1, WOOD); g.at(0, y, 1.2).ball(0.28, 0.28, 0.28, GOLD, 5, 3); }
   }
 
@@ -42,6 +44,7 @@ const Models = (function () {
     if (o.ears) { body.at(-0.4, hy + 0.05, 0, 0, 0, 0.5).box(0.4, 0.14, 0.06, skin); body.at(0.4, hy + 0.05, 0, 0, 0, -0.5).box(0.4, 0.14, 0.06, skin); }
     if (o.tusks) { body.at(-0.14, hy - 0.2, 0.27).cyl(0.04, 0, 0.18, 4, [0.95, 0.93, 0.85]); body.at(0.14, hy - 0.2, 0.27).cyl(0.04, 0, 0.18, 4, [0.95, 0.93, 0.85]); }
     if (o.crown) { body.at(0, hy + 0.24, 0).cyl(0.3, 0.34, 0.16, 6, GOLD); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; body.at(Math.cos(a) * 0.3, hy + 0.38, Math.sin(a) * 0.3).cyl(0.06, 0, 0.18, 4, GOLD); } }
+    if (o.leaves) { body.at(0, hy + 0.45, 0).ball(0.62, 0.45, 0.62, o.leaves, 6, 3); body.at(-0.5 * b, 1.7, 0).ball(0.3, 0.22, 0.3, o.leaves, 5, 3); body.at(0.5 * b, 1.7, 0).ball(0.3, 0.22, 0.3, o.leaves, 5, 3); }
     if (o.cape) body.at(0, 1.02, -0.3 * b, 0, 0.14).box(0.82 * b, 1.25, 0.06, o.cape);
     parts.push({ geo: body, p: [0, 0, 0], k: 'body' });
     const ax = 0.43 * b + 0.13;
@@ -103,6 +106,14 @@ const Models = (function () {
     zombie: () => humanoid({ skin: hex('#7d9a6a'), cloth: hex('#4a4238'), head: 'round', eye: [1.2, 1.2, 0.5], bulk: 1.1, pose: 'zombie' }),
     goblin: () => humanoid({ skin: GOB, cloth: hex('#6b4a2a'), head: 'round', eye: [1.4, 1.2, 0.2], ears: true, weapon: 'dagger' }),
     brute: () => humanoid({ skin: hex('#4d8f3c'), cloth: hex('#5a3a22'), head: 'round', eye: [1.4, 0.4, 0.2], ears: true, tusks: true, weapon: 'club', bulk: 1.45 }),
+    digger: () => humanoid({ skin: BONE, cloth: hex('#5a4a3a'), pants: mul(BONE, 0.9), head: 'skull', eye: [0.3, 1.2, 0.5], weapon: 'pick', bulk: 0.72 }),
+    archer: () => humanoid({ skin: BONE, cloth: hex('#3d5a3a'), pants: mul(BONE, 0.9), head: 'hood', eye: [0.3, 1.2, 0.5], weapon: 'bow', bulk: 0.72 }),
+    ghoul: () => humanoid({ skin: hex('#b8b0c4'), cloth: hex('#3a3040'), head: 'round', eye: [1.8, 0.3, 0.3], bulk: 0.9, pose: 'zombie' }),
+    miner: () => humanoid({ skin: GOB, cloth: hex('#8a7a3a'), head: 'round', eye: [1.4, 1.2, 0.2], ears: true, weapon: 'pick' }),
+    slinger: () => humanoid({ skin: GOB, cloth: hex('#3a5a6b'), head: 'hood', eye: [1.4, 1.2, 0.2], ears: true, weapon: 'bow' }),
+    berserker: () => humanoid({ skin: hex('#7fbf4a'), cloth: hex('#a3261c'), head: 'round', eye: [2, 0.3, 0.2], ears: true, tusks: true, weapon: 'axe', bulk: 1.1 }),
+    treant: () => humanoid({ skin: hex('#6b4a2a'), cloth: hex('#4f3620'), limb: hex('#5c3f24'), head: 'round', eye: [1.2, 1.8, 0.4], leaves: [0.22, 0.5, 0.2], bulk: 1.15 }),
+    golem: () => humanoid({ skin: hex('#8a8d94'), cloth: hex('#6f737b'), limb: hex('#7c8088'), head: 'round', eye: [0.4, 1.2, 2.2], core: [0.4, 1.2, 2.4], bulk: 1.5 }),
     wolf: () => quad({ col: hex('#7c7f88'), w: 1, eye: [1.6, 1.3, 0.3] }),
     boar: () => quad({ col: hex('#6b4a33'), w: 1.3, eye: [0.1, 0.1, 0.1], tusks: true }),
     bandit: () => humanoid({ skin: hex('#d2a680'), cloth: hex('#5a4a3a'), head: 'hood', weapon: 'sword' }),
@@ -112,7 +123,7 @@ const Models = (function () {
     troll: () => humanoid({ skin: hex('#6f8fa3'), cloth: hex('#4c3b2a'), head: 'round', eye: [1.6, 1.4, 0.3], tusks: true, ears: true, weapon: 'club', bulk: 1.6 }),
     guardian: () => humanoid({ skin: hex('#6b6f78'), cloth: hex('#585c66'), limb: hex('#7a7e88'), head: 'helm', eye: [2.2, 1.0, 0.2], core: [2.4, 1.1, 0.2], bulk: 1.7 }),
   };
-  const SCALE = { lich: 1.15, goblin_king: 1.1, skeleton: 0.9, raised: 0.9, zombie: 1.0, goblin: 0.7, brute: 1.05, wolf: 1.0, boar: 1.0, bandit: 1.0, spider: 1.25, orc: 1.25, knight: 1.25, troll: 2.1, guardian: 3.4 };
+  const SCALE = { digger: 0.9, archer: 0.9, miner: 0.7, slinger: 0.7, berserker: 0.85, lich: 1.15, goblin_king: 1.1, skeleton: 0.9, raised: 0.9, zombie: 1.0, goblin: 0.7, brute: 1.05, wolf: 1.0, boar: 1.0, bandit: 1.0, spider: 1.25, orc: 1.25, knight: 1.25, troll: 2.1, guardian: 3.4 };
 
   function build(def) { for (const p of def.parts) { p.m = eng.mesh(p.geo); delete p.geo; } return def; }
   function get(name) { if (!cache[name]) { cache[name] = build(DEFS[name]()); cache[name].s = SCALE[name] || 1; } return cache[name]; }
