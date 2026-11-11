@@ -174,7 +174,7 @@ class Game {
       work: (1 + 0.2 * (b.workshop || 0)) * (1 + 0.15 * (c.tools || 0)) * (has('m_swift') ? 1.25 : 1) * (p.work || 1),
       revive: p.revive || 1, heroHarvest: p.heroHarvest || D.HERO_HARVEST,
       carry: 5 + (b.workshop || 0) + (has('f_harvest') ? 2 : 0),
-      cap: Math.round(D.cap(b) * (has('f_vault') ? 1.5 : 1)), mcap: D.minionCap(b) + (has('m_swarm') ? 3 : 0),
+      cap: Math.round(D.cap(b) * (has('f_vault') ? 1.5 : 1)), mcap: Math.round(D.minionCap(b) * (p.mcapMul || 1)) + (has('m_swarm') ? 3 : 0),
       gar: has('f_ward') ? 1.5 : 1, lootTaken: has('f_ward') ? 0.5 : 1,
     };
   }

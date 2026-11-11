@@ -610,7 +610,7 @@
 
   const mm = $('minimap'), mctx = mm.getContext('2d');
   function minimap() {
-    const c = mctx, W = 220, R = 104, k = R / (WR + 5), cx = W / 2, cy = W / 2, P = (x, z) => [cx + x * k, cy - z * k];
+    const c = mctx, W = 220, R = 104, k = R / (WR + 5), cx = W / 2, cy = W / 2, P = (x, z) => [cx - x * k, cy - z * k];
     c.clearRect(0, 0, W, W);
     c.fillStyle = '#4f7a3c'; c.beginPath(); c.arc(cx, cy, WR * k, 0, TAU); c.fill();
     c.fillStyle = '#2f5234'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier1 * k, 0, TAU); c.fill();
@@ -626,7 +626,7 @@
       else if (e.o === S.id) { c.fillStyle = '#9dffb4'; c.fillRect(p[0] - 1.5, p[1] - 1.5, 3, 3); }
     }
     const p = P(S.x, S.z);
-    c.save(); c.translate(p[0], p[1]); c.rotate(S.r); c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2;
+    c.save(); c.translate(p[0], p[1]); c.rotate(-S.r); c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2;
     c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 7); c.lineTo(0, 3); c.lineTo(-6, 7); c.closePath(); c.stroke(); c.fill(); c.restore();
   }
 

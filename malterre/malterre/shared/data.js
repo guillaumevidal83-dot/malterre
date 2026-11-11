@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.5.0',
+    VERSION: '0.5.1',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
@@ -33,7 +33,7 @@
       lich: {
         name: 'Liche', icon: '💀', model: 'lich', title: 'Seigneur des morts', spec: 'Os', specIcon: '🦴', fx: [0.5, 1.9, 0.9],
         desc: 'Lance des traits d\'ombre à distance et relève des morts pour combattre.',
-        passive: { name: 'Légion sans fin', desc: 'Serviteurs 20 % moins chers, et les vaincus reviennent 2 fois plus vite.', minionCost: 0.8, revive: 0.5 },
+        passive: { name: 'Légion sans fin', desc: 'Deux fois plus de serviteurs que les autres seigneurs, et les vaincus reviennent 2 fois plus vite.', mcapMul: 2, revive: 0.5 },
         hp: 120, dmg: 11, range: 13, atkCd: 0.9, speed: 8.5, ranged: true,
         minions: ['skeleton', 'digger', 'archer', 'ghoul', 'zombie', 'abomination'],
         skills: [
