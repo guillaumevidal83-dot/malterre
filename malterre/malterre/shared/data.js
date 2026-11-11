@@ -20,8 +20,8 @@
       raidDown: 'Serviteur de garnison vaincu : indisponible (s)', lootTime: 'Durée du pillage (s)',
     },
     RES: {
-      wood: { name: 'Bois', icon: '🪵' }, stone: { name: 'Pierre', icon: '🪨' },
-      gold: { name: 'Or', icon: '🪙' }, spec: { name: 'Spécial', icon: '✨' },
+      wood: { name: 'Bois', icon: '🌲' }, stone: { name: 'Pierre', icon: '🧱' },
+      gold: { name: 'Or', icon: '💰' }, spec: { name: 'Spécial', icon: '✨' },
     },
     START: { res: { wood: 60, stone: 40, gold: 0, spec: 45 }, roles: ['wood', 'stone', 'spec'] },
     COLORS: ['#8e5bd6', '#d6453a', '#3aa0d6', '#e0a526', '#3fbf6a', '#d65ba8', '#e07b2a', '#58c9c0'],
@@ -59,7 +59,7 @@
       raised: { name: 'Squelette relevé', hp: 60, dmg: 9, speed: 8, work: 0, cost: {}, unlock: 99 },
     },
     ROLES: {
-      wood: { name: 'Bois', icon: '🪵' }, stone: { name: 'Pierre', icon: '🪨' }, gold: { name: 'Or', icon: '🪙' },
+      wood: { name: 'Bois', icon: '🌲' }, stone: { name: 'Pierre', icon: '🧱' }, gold: { name: 'Or', icon: '💰' },
       spec: { name: 'Spécial', icon: '✨' }, escort: { name: 'Escorte', icon: '⚔️' }, guard: { name: 'Garde', icon: '🛡️' },
     },
     MOBS: {

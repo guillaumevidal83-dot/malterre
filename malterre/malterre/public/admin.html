@@ -55,9 +55,9 @@
     <div class="panel">
       <label class="s">Joueur</label><select id="gName"></select>
       <div class="give">
-        <div><label class="s">🪵 Bois</label><input id="g_wood" type="number" value="0"></div>
-        <div><label class="s">🪨 Pierre</label><input id="g_stone" type="number" value="0"></div>
-        <div><label class="s">🪙 Or</label><input id="g_gold" type="number" value="0"></div>
+        <div><label class="s">🌲 Bois</label><input id="g_wood" type="number" value="0"></div>
+        <div><label class="s">🧱 Pierre</label><input id="g_stone" type="number" value="0"></div>
+        <div><label class="s">💰 Or</label><input id="g_gold" type="number" value="0"></div>
         <div><label class="s">✨ Spécial</label><input id="g_spec" type="number" value="0"></div>
         <div><label class="s">⭐ XP (si en ligne)</label><input id="g_xp" type="number" value="0"></div>
       </div>
@@ -110,7 +110,7 @@ function render() {
     .map(k => '<div class="kpi">' + k[0] + '<b>' + k[1] + '</b></div>').join('');
   $('players').innerHTML = st.players.length ? st.players.map(p =>
     '<tr><td><span class="dot' + (p.online ? ' on' : '') + '"></span><b>' + esc(p.name) + '</b><br><small>' + esc(p.cls) + ' · royaume ' + (p.slot + 1) + ' · ' + (p.online ? 'en ligne' : 'vu il y a ' + dur(p.ago)) + '</small></td>' +
-    '<td>' + p.lvl + '</td><td>🪵 ' + p.res.wood + ' 🪨 ' + p.res.stone + '<br>🪙 ' + p.res.gold + ' ✨ ' + p.res.spec + '</td>' +
+    '<td>' + p.lvl + '</td><td>🌲 ' + p.res.wood + ' 🧱 ' + p.res.stone + '<br>💰 ' + p.res.gold + ' ✨ ' + p.res.spec + '</td>' +
     '<td><small>Trône ' + p.b.throne + ' · Stock ' + p.b.storage + ' · Caserne ' + p.b.barracks + '<br>Autel ' + p.b.altar + ' · Atelier ' + p.b.workshop + ' · ' + p.minions + ' serviteurs' + (p.shield ? '<br>🛡️ ' + dur(p.shield) : '<br>⚠️ exposé') + '</small></td>' +
     '<td><button class="red" data-del="' + esc(p.name) + '">Supprimer</button></td></tr>').join('') : '<tr><td colspan="5"><small>Aucun joueur pour l\'instant.</small></td></tr>';
   const sel = $('gName'), cur = sel.value;

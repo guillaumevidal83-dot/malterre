@@ -165,7 +165,7 @@
     } else if (k === 'lt') {
       const me = S.me, spec = me ? D.CLASSES[me.cls].specIcon : '✨';
       floatText(ev[4], 3.2, ev[5], '+' + ev[1] + ' XP', '#c9a6ff', 15, 1.6);
-      const bits = []; if (ev[2]) bits.push('+' + ev[2] + ' 🪙'); if (ev[3]) bits.push('+' + ev[3] + ' ' + spec);
+      const bits = []; if (ev[2]) bits.push('+' + ev[2] + ' 💰'); if (ev[3]) bits.push('+' + ev[3] + ' ' + spec);
       if (bits.length) floatText(ev[4], 2.3, ev[5], bits.join('  '), '#ffe29a', 14, 1.6);
       sfx('loot');
     } else if (k === 'lv') {
