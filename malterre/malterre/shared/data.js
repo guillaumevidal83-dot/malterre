@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.4.0',
+    VERSION: '0.5.0',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
@@ -9,7 +9,7 @@
       regenNode: 20, minionRevive: 60, playerRespawn: 6,
       xpMult: 1, lootMult: 1, offlineRate: 0.5, offlineMaxH: 12,
       raidLoot: 0.25, raidShieldH: 4, newShieldH: 4, raidDown: 1800, lootTime: 8,
-      relicMult: 1, refund: 0.5,
+      relicMult: 1, refund: 0.5, villageMax: 3, villageIncome: 1, villageShieldMin: 10, captureTime: 6,
     },
     CONFIG_LABELS: {
       respawnMob: 'Réapparition des mobs (s)', respawnElite: 'Réapparition des élites (s)',
@@ -20,6 +20,7 @@
       raidLoot: 'Part du stock volée par un pillage (0 à 1)', raidShieldH: 'Bouclier après un pillage (heures)', newShieldH: 'Bouclier d\'un nouveau royaume (heures)',
       raidDown: 'Serviteur de garnison vaincu : indisponible (s)', lootTime: 'Durée du pillage (s)',
       relicMult: 'Multiplicateur de chance de relique', refund: 'Part remboursée au sacrifice d\'un serviteur (0 à 1)',
+      villageMax: 'Villages maximum par seigneur', villageIncome: 'Multiplicateur du revenu des villages', villageShieldMin: 'Protection d\'un village après conquête (min)', captureTime: 'Durée d\'une conquête (s)',
     },
     RES: {
       wood: { name: 'Bois', icon: '🌲' }, stone: { name: 'Pierre', icon: '🧱' },
@@ -149,6 +150,8 @@
       golem: { name: 'Golem de pierre', model: 'golem', scale: 1.6, tier: 2, hp: 380, dmg: 22, speed: 4.5, range: 3, aggro: 10, cd: 1.9, xp: 48, stone: [25, 40], rad: 1.4 },
       broodmother: { name: 'Mère des araignées', model: 'spider', scale: 2.2, tier: 2, hp: 1900, dmg: 30, speed: 6.5, range: 3.4, aggro: 14, cd: 1.5, xp: 380, gold: [20, 40], spec: [60, 90], rad: 2.4, elite: true, relic: 0.6 },
       warlord: { name: 'Seigneur de guerre orc', model: 'orc', scale: 1.8, tier: 2, hp: 2300, dmg: 42, speed: 6, range: 3.4, aggro: 14, cd: 1.7, xp: 450, gold: [80, 130], spec: [20, 30], rad: 1.7, elite: true, relic: 0.6 },
+      militia: { name: 'Milicien', model: 'militia', tier: 1, hp: 110, dmg: 11, speed: 6.5, range: 2.2, aggro: 12, cd: 1.3, xp: 20, gold: [4, 8], rad: 0.7 },
+      captain: { name: 'Capitaine du village', model: 'knight', scale: 0.95, tier: 2, hp: 520, dmg: 24, speed: 6.5, range: 2.6, aggro: 13, cd: 1.4, xp: 110, gold: [30, 50], rad: 0.9, elite: true, relic: 0.05 },
       knight: { name: 'Chevalier déchu', tier: 3, hp: 380, dmg: 28, speed: 6.5, range: 2.6, aggro: 14, cd: 1.4, xp: 75, gold: [18, 32], spec: [5, 10], rad: 0.9, relic: 0.04 },
       troll: { name: 'Troll', tier: 3, hp: 750, dmg: 38, speed: 5.5, range: 3.2, aggro: 14, cd: 1.9, xp: 170, gold: [20, 40], spec: [12, 22], stone: [20, 35], rad: 1.6, elite: true, relic: 0.25 },
       guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], wood: [100, 140], stone: [100, 140], rad: 3.4, boss: true, relic: 1 },
@@ -192,6 +195,8 @@
     },
     RELIC_TYPES: { h: 'Héros', m: 'Serviteurs', f: 'Forteresse' },
     HERO_HARVEST: 2,
+    // Revenu d'un village par minute (doublé pour les villages riches de la zone intermédiaire).
+    VILLAGE: { income: { gold: 6, wood: 5, stone: 5, spec: 4 }, zone: 32, guards: 5 },
     // Emplacements des bâtiments dans la forteresse (repère local, +z vers le centre du monde).
     PLOTS: { throne: [0, -15], storage: [-14, -3], barracks: [14, -3], altar: [-11, 9], workshop: [11, 9] },
     FORT: { wall: 24, spawn: [0, 8], zone: 36 },

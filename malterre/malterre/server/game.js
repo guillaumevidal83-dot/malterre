@@ -44,10 +44,16 @@ class Game {
     }
     for (const k in this.players) { const f = this.forts[this.players[k].slot]; if (f) f.owner = k; }
 
+    // Villages : 8 entre les forteresses (zone calme) et 4 plus riches en zone intermédiaire.
+    this.villages = [];
+    for (let i = 0; i < W.slots; i++) { const a = (i + 0.5) / W.slots * TAU; this.villages.push({ id: i, kind: 'village', x: Math.sin(a) * (W.tier1 + 45), z: Math.cos(a) * (W.tier1 + 45), rich: 1, owner: null, shieldUntil: 0, gar: null, regarAt: 0, spawns: [] }); }
+    for (let i = 0; i < 4; i++) { const a = (i + 0.25) / 4 * TAU; this.villages.push({ id: W.slots + i, kind: 'village', x: Math.sin(a) * (W.tier2 + 55), z: Math.cos(a) * (W.tier2 + 55), rich: 2, owner: null, shieldUntil: 0, gar: null, regarAt: 0, spawns: [] }); }
+    if (saved.villages) for (const v of this.villages) { const sv = saved.villages[v.id]; if (sv && this.players[sv[0]]) { v.owner = sv[0]; v.shieldUntil = sv[1] || 0; } }
+    const farV = (x, z, d) => this.villages.every(v => (v.x - x) ** 2 + (v.z - z) ** 2 > d * d);
     const nodes = this.nodes = [];
     const ok = (x, z, minFort) => x * x + z * z < (RAD - 7) * (RAD - 7) &&
       this.forts.every(f => (f.x - x) ** 2 + (f.z - z) ** 2 > minFort * minFort) &&
-      nodes.every(n => (n.x - x) ** 2 + (n.z - z) ** 2 > 12);
+      nodes.every(n => (n.x - x) ** 2 + (n.z - z) ** 2 > 12) && farV(x, z, 17);
     const add = (type, x, z, rich) => {
       const max = D.NODES[type].stock * rich;
       nodes.push({ id: nodes.length, type, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, rich, max, stock: max, ts: 0, vis: 3 });
@@ -71,7 +77,7 @@ class Game {
     scatter('tree', 230, W.tier1, RAD - 7, 1); scatter('rock', 85, W.tier1, RAD - 7, 1); scatter('remains', 34, W.tier1, RAD - 7, 1); scatter('vein', 18, W.tier1, RAD - 7, 1);
     scatter('tree', 130, W.tier2, W.tier1, 2); scatter('rock', 65, W.tier2, W.tier1, 2); scatter('vein', 30, W.tier2, W.tier1, 2); scatter('remains', 34, W.tier2, W.tier1, 2);
     scatter('tree', 45, 14, W.tier2, 3); scatter('rock', 22, 14, W.tier2, 3); scatter('vein', 22, 14, W.tier2, 4); scatter('remains', 22, 14, W.tier2, 4);
-    if (saved.nodes && saved.v === 3) for (const id in saved.nodes) { const n = nodes[id]; if (n) { n.stock = saved.nodes[id][0]; n.ts = saved.nodes[id][1]; } }
+    if (saved.nodes && saved.v === 4) for (const id in saved.nodes) { const n = nodes[id]; if (n) { n.stock = saved.nodes[id][0]; n.ts = saved.nodes[id][1]; } }
     for (const n of nodes) n.vis = this.visOf(n);
     // Gisements proches de chaque forteresse, triés par distance (pour les ouvriers).
     for (const f of this.forts) for (const res of GATHER) {
@@ -80,12 +86,12 @@ class Game {
 
     // Points d'apparition des mobs.
     const spawns = this.spawns = [];
-    const sp = (type, x, z, roam) => spawns.push({ id: spawns.length, type, x, z, roam: !!roam, deadUntil: 0, ent: null });
+    const sp = (type, x, z, roam, village) => { const o = { id: spawns.length, type, x, z, roam: !!roam, deadUntil: 0, ent: null, village: village || null }; spawns.push(o); if (village) village.spawns.push(o); };
     const packs = (type, n, min, max, r0, r1, minFort, roam) => {
       let tries = 0;
       while (n > 0 && tries++ < 4000) {
         const a = R() * TAU, r = Math.sqrt(r0 * r0 + R() * (r1 * r1 - r0 * r0)), x = Math.sin(a) * r, z = Math.cos(a) * r;
-        if (!this.forts.every(f => (f.x - x) ** 2 + (f.z - z) ** 2 > minFort * minFort)) continue;
+        if (!this.forts.every(f => (f.x - x) ** 2 + (f.z - z) ** 2 > minFort * minFort) || !farV(x, z, 34)) continue;
         const c = min + Math.floor(R() * (max - min + 1));
         for (let i = 0; i < c; i++) sp(type, x + (R() - 0.5) * 9, z + (R() - 0.5) * 9, roam);
         n--;
@@ -99,10 +105,12 @@ class Game {
     packs('broodmother', 3, 1, 1, W.tier2 + 20, W.tier1 - 20, 0); packs('warlord', 3, 1, 1, W.tier2 + 10, W.tier1 - 30, 0);
     packs('knight', 16, 2, 2, 24, W.tier2 - 4, 0); packs('troll', 10, 1, 1, 24, W.tier2 - 6, 0);
     sp('guardian', 0, 0);
+    for (const v of this.villages) { const n = v.rich > 1 ? 6 : 4; for (let i = 0; i < n; i++) { const a = i / n * TAU; sp('militia', v.x + Math.sin(a) * 6, v.z + Math.cos(a) * 6, false, v); } sp('captain', v.x + 2, v.z + 2, false, v); }
     const t = now();
     for (const s of spawns) {
-      if (saved.v === 3 && saved.dead && saved.dead[s.id] > t) s.deadUntil = saved.dead[s.id]; else this.spawnMob(s);
+      if (saved.v === 4 && saved.dead && saved.dead[s.id] > t) s.deadUntil = saved.dead[s.id]; else if (!(s.village && s.village.owner)) this.spawnMob(s);
     }
+    for (const v of this.villages) if (v.owner) this.spawnVillageGuards(v);
   }
 
   visOf(n) { return Math.ceil(this.nodeStock(n) / n.max * 3); }
@@ -180,7 +188,40 @@ class Game {
   }
   shielded(f) { const p = f.owner && this.players[f.owner]; return !!p && (p.shield || 0) > now(); }
   // Zone de raid : autour d'une forteresse possédée et non protégée.
-  zoneOf(e) { for (const f of this.forts) if (f.owner && Math.hypot(f.x - e.x, f.z - e.z) < D.FORT.zone && !this.shielded(f)) return f; return null; }
+  zoneOf(e) {
+    for (const f of this.forts) if (f.owner && Math.hypot(f.x - e.x, f.z - e.z) < D.FORT.zone && !this.shielded(f)) return f;
+    const t = now();
+    for (const v of this.villages) if (v.owner && Math.hypot(v.x - e.x, v.z - e.z) < D.VILLAGE.zone && v.shieldUntil <= t) return v;
+    return null;
+  }
+  villInfo(v) { const p = v.owner && this.players[v.owner]; return { id: v.id, x: v.x, z: v.z, rich: v.rich, o: p ? p.name : null, c: p ? p.cls : null, s: p ? p.slot : -1, sh: Math.max(0, Math.round((v.shieldUntil - now()) / 1000)) }; }
+  villBroadcast(v) { const info = this.villInfo(v); for (const s of this.online.values()) this.send(s, { t: 'vill', v: info }); }
+  villagesOf(key) { return this.villages.filter(v => v.owner === key); }
+  villageIncome(key) { const out = {}; for (const v of this.villagesOf(key)) for (const r in D.VILLAGE.income) out[r] = (out[r] || 0) + D.VILLAGE.income[r] * v.rich * this.cfg.villageIncome; return out; }
+  // Gardes d'un village conquis : ils défendent pour leur seigneur, même absent.
+  spawnVillageGuards(v) {
+    this.clearGarrison(v);
+    const rec = this.players[v.owner]; if (!rec) { v.owner = null; return; }
+    const st = this.stats(rec), ms = D.CLASSES[rec.cls].minions, types = [ms[0], ms[0], ms[2], ms[4], ms[4]];
+    v.gar = types.map((mt, i) => {
+      const def = D.MINIONS[mt], a = i / types.length * TAU, p = { x: v.x + Math.sin(a) * 6, z: v.z + Math.cos(a) * 6 }, hp = Math.round(def.hp * st.mHp * 1.5 * v.rich);
+      const e = { id: this.nextId++, k: 1, t: mt, x: p.x, z: p.z, r: a, hp, mh: hp, a: 0, owner: v.owner, oid: 0, def, mult: st.mDmg * 1.5, rad: 0.5, gar: v, vg: true, post: p, tgt: null, nextAtk: 0, think: 0, atkAnim: 0 };
+      this.ents.set(e.id, e); return e;
+    });
+  }
+  freeVillage(v) { this.clearGarrison(v); v.owner = null; v.shieldUntil = 0; for (const s of v.spawns) s.deadUntil = 0; this.villBroadcast(v); }
+  captureVillage(sess, v) {
+    const t = now(), prev = v.owner && this.players[v.owner], prevSess = v.owner && this.online.get(v.owner);
+    for (const s of v.spawns) if (s.ent) { this.ents.delete(s.ent.id); s.ent = null; }
+    v.owner = sess.key; v.shieldUntil = t + this.cfg.villageShieldMin * 60000;
+    this.spawnVillageGuards(v);
+    this.villBroadcast(v);
+    this.ev(v.x, v.z, ['fx', 'loot', Math.round(v.x), Math.round(v.z), 9, sess.ent.id]);
+    sess.dirty = true;
+    if (prevSess) { prevSess.dirty = true; this.send(prevSess, { t: 'alert', m: '🚩 ' + sess.rec.name + ' t\'a pris un village !' }); }
+    else if (prev) { prev.reports = prev.reports || []; prev.reports.push({ by: sess.rec.name, at: t, down: 0, lost: null, village: 1 }); if (prev.reports.length > 5) prev.reports.shift(); }
+    this.say('🚩 ' + sess.rec.name + ' conquiert un village' + (prev ? ' de ' + prev.name : '') + ' !');
+  }
   // Deux unités de joueurs sont ennemies seulement dans une zone de raid, et si l'une d'elles défend cette forteresse.
   enemyU(a, b) {
     const ka = this.ownerKey(a), kb = this.ownerKey(b);
@@ -271,6 +312,7 @@ class Game {
     } else if (tgt.k === 1) {
       this.ev(tgt.x, tgt.z, ['d', tgt.id, 1, tgt.t]);
       this.ents.delete(tgt.id);
+      if (tgt.vg) { const v = tgt.gar; if (v.gar) v.gar = v.gar.filter(m => m !== tgt); v.regarAt = t + 300000; return; }
       if (tgt.gar) {
         const f = tgt.gar, by = this.ownerKey(src);
         if (f.gar) f.gar = f.gar.filter(m => m !== tgt);
@@ -315,7 +357,14 @@ class Game {
     this.secTimer += dt;
     if (this.secTimer >= 1) {
       this.secTimer = 0;
-      for (const s of this.spawns) if (!s.ent && t >= s.deadUntil) this.spawnMob(s);
+      for (const s of this.spawns) if (!s.ent && t >= s.deadUntil && !(s.village && s.village.owner)) this.spawnMob(s);
+      for (const v of this.villages) {
+        if (!v.owner) continue;
+        if (!this.players[v.owner]) { this.freeVillage(v); continue; }
+        if ((!v.gar || v.gar.length < D.VILLAGE.guards) && t >= v.regarAt && ![...this.online.values()].some(s => s.key !== v.owner && dist(s.ent, v) < 45)) this.spawnVillageGuards(v);
+      }
+      this.incomeT = (this.incomeT || 0) + 1;
+      if (this.incomeT >= 60) { this.incomeT = 0; for (const sess of this.online.values()) { const inc = this.villageIncome(sess.key); for (const r in inc) this.addRes(sess.rec, r, Math.round(inc[r])); if (Object.keys(inc).length) sess.dirty = true; } }
       for (const n of this.nodes) { const v = this.visOf(n); if (v !== n.vis) { n.vis = v; this.nodeChanges.push([n.id, v]); } }
       for (const sess of this.online.values()) {
         for (const rec of sess.rec.minions) if (rec.deadUntil && t >= rec.deadUntil) { delete rec.deadUntil; this.spawnMinion(sess, rec); sess.dirty = true; }
@@ -332,6 +381,7 @@ class Game {
       }
     }
     for (const f of this.forts) if (f.gar) for (const m of [...f.gar]) if (this.ents.has(m.id)) this.tickGarrison(m, f, dt, t);
+    for (const v of this.villages) if (v.gar) for (const m of [...v.gar]) if (this.ents.has(m.id)) this.tickGarrison(m, v, dt, t);
     for (const e of [...this.ents.values()]) if (e.k === 2 && this.ents.has(e.id)) this.tickMob(e, dt, t);
     for (const sess of this.online.values()) {
       this.tickPlayer(sess, dt, t);
@@ -394,7 +444,12 @@ class Game {
       }
       return;
     }
-    if (sess.loot) {
+    if (sess.loot && sess.loot.v) {
+      const v = sess.loot.v;
+      if (dist(e, v) > 10 || v.owner === sess.key) { sess.loot = null; this.send(sess, { t: 'lootx', m: 'Conquête interrompue : tu t\'es éloigné.' }); }
+      else if (this.villageGuarded(v)) { sess.loot = null; this.send(sess, { t: 'lootx', m: 'Conquête interrompue : des gardes sont revenus.' }); }
+      else if (t >= sess.loot.until) { sess.loot = null; this.captureVillage(sess, v); }
+    } else if (sess.loot) {
       const lf = sess.loot.f, sp = this.fortPos(lf, D.PLOTS.storage[0], D.PLOTS.storage[1]);
       if (e.zone !== lf || Math.hypot(sp.x - e.x, sp.z - e.z) > 9.5) { sess.loot = null; this.send(sess, { t: 'lootx', m: 'Pillage interrompu : tu t\'es éloigné.' }); }
       else if (t >= sess.loot.until) { sess.loot = null; this.finishLoot(sess, lf); }
@@ -468,7 +523,7 @@ class Game {
     const rec = sess.rec, t = now();
     return { t: 'me', name: rec.name, cls: rec.cls, lvl: rec.lvl, xp: rec.xp, need: D.xpNeed(rec.lvl), res: rec.res, cap: sess.st.cap, b: rec.b,
       mcap: sess.st.mcap, slot: rec.slot, dmg: Math.round(this.heroDmg(sess)), kills: rec.kills || 0, speed: sess.st.speed,
-      craft: rec.craft || {}, relics: rec.relics || [], eq: rec.eq || {},
+      craft: rec.craft || {}, relics: rec.relics || [], eq: rec.eq || {}, vill: this.villagesOf(sess.key).length, vinc: this.villageIncome(sess.key),
       minions: rec.minions.map(m => [m.t, m.role, m.deadUntil ? Math.max(1, Math.ceil((m.deadUntil - t) / 1000)) : 0]) };
   }
 
@@ -584,6 +639,7 @@ class Game {
         const work = D.MINIONS[m.t].work * os.work;
         gains[m.role] = (gains[m.role] || 0) + os.carry / (22 + 4 / work) * el * cfg.offlineRate;
       }
+      const vinc = this.villageIncome(key); for (const r in vinc) gains[r] = (gains[r] || 0) + vinc[r] * el / 60;
       const got = {};
       for (const r in gains) { const before = rec.res[r]; this.addRes(rec, r, Math.floor(gains[r])); if (rec.res[r] > before) got[r] = rec.res[r] - before; }
       offline = { sec: Math.round(t - rec.lastSeen) / 1000 | 0, got };
@@ -602,7 +658,7 @@ class Game {
       if (!m.deadUntil || m.deadUntil <= t) { delete m.deadUntil; this.spawnMinion(sess, m); }
     }
     this.send(sess, { t: 'welcome', id: ent.id, name: rec.name, cls: rec.cls, tok, x: p.x, z: p.z, r: f.rot, cfg, offline, reports,
-      nodes: this.nodes.map(n => [n.id, n.type, n.x, n.z, n.rich, n.vis]), forts: this.forts.map(x => this.fortInfo(x)) });
+      nodes: this.nodes.map(n => [n.id, n.type, n.x, n.z, n.rich, n.vis]), forts: this.forts.map(x => this.fortInfo(x)), villages: this.villages.map(v => this.villInfo(v)) });
     this.rosterDirty = true;
     this.say('👋 ' + rec.name + ' entre en Malterre.');
   }
@@ -816,9 +872,22 @@ class Game {
     this.refresh(sess);
     // Un étendard retiré peut laisser trop de serviteurs : les derniers invoqués attendent sans être perdus.
   }
+  villageGuarded(v) { return v.owner ? !!(v.gar && v.gar.length) : v.spawns.some(s => s.ent); }
   onLoot(sess) {
     const e = sess.ent, f = e.zone, err = m => this.send(sess, { t: 'err', m });
     if (e.dead || sess.loot) return;
+    const v = this.villages.find(x => dist(x, e) < 9);
+    if (v) {
+      if (v.owner === sess.key) return err('Ce village est déjà à toi.');
+      if (v.shieldUntil > now()) return err('Ce village vient d\'être conquis, il est encore protégé.');
+      if (this.villagesOf(sess.key).length >= this.cfg.villageMax) return err('Tu tiens déjà ' + this.cfg.villageMax + ' villages, le maximum.');
+      if (this.villageGuarded(v)) return err('Élimine d\'abord tous les gardes du village.');
+      sess.loot = { v, until: now() + this.cfg.captureTime * 1000 };
+      this.send(sess, { t: 'lootc', s: this.cfg.captureTime });
+      const owner = v.owner && this.online.get(v.owner);
+      if (owner) this.send(owner, { t: 'alert', m: '🚨 ' + sess.rec.name + ' s\'empare d\'un de tes villages !' });
+      return;
+    }
     if (!f || f.owner === sess.key) return err('Aucune forteresse à piller ici.');
     const sp = this.fortPos(f, D.PLOTS.storage[0], D.PLOTS.storage[1]);
     if (Math.hypot(sp.x - e.x, sp.z - e.z) > 8) return err('Approche-toi de la réserve.');
@@ -855,7 +924,8 @@ class Game {
     for (const s of this.online.values()) s.rec.lastSeen = t;
     for (const n of this.nodes) if (this.nodeStock(n) < n.max) nodes[n.id] = [n.stock, n.ts];
     for (const s of this.spawns) if (s.deadUntil > t) dead[s.id] = s.deadUntil;
-    return { v: 3, seed: this.seed, created: this.created, cfg: this.cfg, players: this.players, nodes, dead };
+    const villages = {}; for (const v of this.villages) if (v.owner) villages[v.id] = [v.owner, v.shieldUntil];
+    return { v: 4, villages, seed: this.seed, created: this.created, cfg: this.cfg, players: this.players, nodes, dead };
   }
 
   adminState() {
@@ -863,7 +933,7 @@ class Game {
     return {
       created: this.created, cfg: this.cfg, defaults: D.CONFIG, labels: D.CONFIG_LABELS, slots: W.slots,
       mobs: [...this.ents.values()].filter(e => e.k === 2).length, mobsTotal: this.spawns.length, nodes: this.nodes.length,
-      players: Object.keys(this.players).map(k => { const p = this.players[k]; return { name: p.name, cls: D.CLASSES[p.cls].name, lvl: p.lvl, slot: p.slot, online: this.online.has(k), res: p.res, b: p.b, minions: p.minions.length, kills: p.kills || 0, shield: Math.max(0, Math.round(((p.shield || 0) - t) / 1000)), ago: Math.round((t - p.lastSeen) / 1000) }; }),
+      players: Object.keys(this.players).map(k => { const p = this.players[k]; return { name: p.name, cls: D.CLASSES[p.cls].name, lvl: p.lvl, slot: p.slot, online: this.online.has(k), res: p.res, b: p.b, minions: p.minions.length, kills: p.kills || 0, villages: this.villagesOf(k).length, shield: Math.max(0, Math.round(((p.shield || 0) - t) / 1000)), ago: Math.round((t - p.lastSeen) / 1000) }; }),
     };
   }
 
@@ -885,6 +955,7 @@ class Game {
         if (s) { this.send(s, { t: 'kick', m: 'Ton royaume a été réinitialisé par l\'admin.' }); this.leave(s); s.conn.sess = null; s.conn.close(); }
         const f = this.forts[rec.slot]; this.clearGarrison(f); f.owner = null;
         delete this.players[key];
+        for (const v of this.villagesOf(key)) this.freeVillage(v);
         this.fortBroadcast(f);
         return { ok: rec.name + ' supprimé.' };
       }

@@ -14,7 +14,7 @@
   Models.init(eng);
 
   const S = {
-    ws: null, inGame: false, id: 0, me: null, ents: new Map(), nodes: [], forts: [], roster: new Map(), cfg: {},
+    ws: null, inGame: false, id: 0, me: null, ents: new Map(), nodes: [], forts: [], villages: [], roster: new Map(), cfg: {},
     x: 0, z: 0, r: 0, moving: false, dead: false, hp: 1, mh: 1, atkT: -9, ph: 0,
     camYaw: 0, camPitch: 0.52, camDist: 15, lastDrag: -9,
     cds: [0, 0, 0], cdMax: [1, 1, 1], nextAtk: 0, atkHeld: false, recallAt: 0,
@@ -57,6 +57,7 @@
       case 'roster': S.roster.clear(); for (const p of m.r) S.roster.set(p.id, p); $('online').textContent = m.r.length + ' en ligne'; break;
       case 'fort': S.forts[m.f.s] = stamp(m.f); S.zoneKey = ''; if (S.sheet) renderSheet(); break;
       case 'relic': { const r = D.RELICS[m.id]; modal('<div style="font-size:54px">' + r.icon + '</div><h2>Relique trouvée !</h2><p class="gain">' + esc(r.name) + '</p><p>' + esc(r.desc) + '</p><p>' + (m.auto ? 'Elle est équipée (' + D.RELIC_TYPES[r.type] + ').' : 'Équipe-la depuis l\'onglet Héros.') + '</p><button class="btn gold wide" id="modalOk">Parfait</button>'); Sound.play('levelup'); Sound.vibrate([50, 50, 50, 50, 200]); break; }
+      case 'vill': S.villages[m.v.id] = stamp(m.v); S.zoneKey = ''; break;
       case 'alert': toast(m.m, 'err'); Sound.play('alert'); Sound.vibrate([80, 60, 80, 60, 160]); break;
       case 'lootc': S.lootEnd = S.time + m.s; S.lootDur = m.s; Sound.play('summon'); break;
       case 'lootx': S.lootEnd = 0; if (m.m) { toast(m.m, 'err'); Sound.play('error'); } break;
@@ -83,13 +84,14 @@
   function onWelcome(m) {
     S.wcls = m.cls; S.id = m.id; S.x = m.x; S.z = m.z; S.r = m.r; S.camYaw = m.r; S.cfg = m.cfg; S.dead = false;
     S.nodes = m.nodes.map(n => ({ id: n[0], type: n[1], x: n[2], z: n[3], rich: n[4], vis: n[5], variant: n[0] % 3, rot: (n[0] * 2.399) % TAU, s: 0.85 + ((n[0] * 7) % 10) / 28 }));
-    S.forts = m.forts.map(stamp); S.lootEnd = 0; S.zoneKey = ''; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
+    S.villages = (m.villages || []).map(stamp); S.forts = m.forts.map(stamp); S.lootEnd = 0; S.zoneKey = ''; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
     store.set('malterre_name', m.name); store.set('malterre_tok', m.tok);
     S.pending = null; S.inGame = true;
     $('login').hidden = true; $('hud').hidden = false; $('net').hidden = true; $('deathScreen').hidden = true;
     let html = '';
     if (m.reports) for (const r of m.reports) {
       const lost = r.lost ? Object.keys(r.lost).filter(k => r.lost[k] > 0).map(k => '<div class="gain" style="color:var(--bad)">−' + r.lost[k] + ' ' + resIcon(k) + '</div>').join('') : '';
+      if (r.village) { html += '<h2>🚩 Village perdu</h2><p>' + esc(r.by) + ' a conquis un de tes villages.</p>'; continue; }
       html += '<h2>⚔️ Raid de ' + esc(r.by) + '</h2>' + (r.lost ? (lost || '<p>Il est reparti les mains vides.</p>') : '<p>Il n\'a pas réussi à piller ta réserve.</p>') + (r.down ? '<p>' + r.down + ' serviteur(s) de ta garnison mis hors de combat.</p>' : '');
     }
     if (m.offline) {
@@ -294,6 +296,7 @@
     if (S.tab === 'fort') {
       const mf = S.forts[me.slot], shLeft = mf && mf.shEnd > S.time ? mf.shEnd - S.time : 0;
       h += '<div class="card"><div class="big">' + (shLeft ? '🛡️' : '⚠️') + '</div><div class="mid"><h3>' + (shLeft ? 'Forteresse protégée' : 'Forteresse exposée') + '</h3><p>' + (shLeft ? 'Personne ne peut te piller pendant encore ' + fmtDur(shLeft) + '. Si tu pilles quelqu\'un, ta protection tombe.' : 'Un autre seigneur peut voler ' + Math.round(S.cfg.raidLoot * 100) + ' % de ton stock. Laisse des serviteurs en Garde pour la défendre.') + '</p></div></div>';
+      { const inc = me.vinc || {}, ks = Object.keys(inc); h += '<div class="card"><div class="big">🚩</div><div class="mid"><h3>Villages<em>' + (me.vill || 0) + ' / ' + S.cfg.villageMax + '</em></h3><p>' + (ks.length ? 'Revenu par minute : ' + ks.map(r => '+' + Math.round(inc[r]) + ' ' + resIcon(r)).join('  ') : 'Élimine les gardes d\'un village, puis tiens le bouton Conquérir près du puits. Chaque village rapporte des ressources en continu, même hors ligne.') + '</p></div></div>'; }
       h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + 'la ressource de ta classe (' + cls.spec.toLowerCase() + '). Ton héros récolte aussi : frappe un arbre, un rocher ou un filon avec le bouton d\'attaque.</div>';
       for (const b in D.BUILDINGS) {
         const lvl = me.b[b] || 0, c = canBuild(b), icon = b === 'barracks' && me.cls !== 'lich' ? '⛺' : b === 'altar' && me.cls !== 'lich' ? '🗿' : BICON[b];
@@ -415,6 +418,7 @@
       const l = fortLocal(f, S.x, S.z), d = Math.hypot(l[0], l[1]);
       if (Math.abs(d - 24) < 1.1 && Math.abs(Math.atan2(l[0], l[1])) > 0.2) { const nd = d < 24 ? 22.9 : 25.1, w = fortWorld(f, l[0] / d * nd, l[1] / d * nd); S.x = w[0]; S.z = w[1]; }
     }
+    for (const v of S.villages) { if (Math.abs(v.x - S.x) > 16 || Math.abs(v.z - S.z) > 16) continue; pushOut(v.x, v.z, 2.3); const n = v.rich > 1 ? 7 : 5; for (let i = 0; i < n; i++) { const a = i / n * TAU + 0.3; pushOut(v.x + Math.sin(a) * 10.5, v.z + Math.cos(a) * 10.5, 3); } }
     const r = Math.hypot(S.x, S.z); if (r > WR - 4) { S.x *= (WR - 4) / r; S.z *= (WR - 4) / r; }
   }
 
@@ -462,6 +466,7 @@
     const r = Math.hypot(S.x, S.z), tier = r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
     let zk = 'z' + tier, title = ZONES[tier], sub = ZSUB[tier];
     for (const f of S.forts) if (Math.hypot(f.x - S.x, f.z - S.z) < 25) { const shd = f.shEnd > S.time; zk = 'f' + f.s + (f.o || '') + (shd ? 's' : ''); title = f.o ? (f.s === me.slot ? 'Ta forteresse' : 'Royaume de ' + f.o) : 'Terre sans maître'; sub = f.o ? D.CLASSES[f.c].name + ' niv. ' + f.l + (shd ? ' · 🛡️ protégé encore ' + fmtDur(f.shEnd - S.time) : f.s === me.slot ? ' · ⚠️ exposée aux raids' : ' · ⚔️ pillage possible') : 'Un royaume peut être fondé ici'; }
+    for (const v of S.villages) if (Math.hypot(v.x - S.x, v.z - S.z) < 20) { const shd = v.shEnd > S.time, mine = v.s === me.slot; zk = 'v' + v.id + (v.o || '') + (shd ? 's' : ''); title = v.o ? (mine ? 'Ton village' : 'Village de ' + v.o) : 'Village libre'; sub = (v.rich > 1 ? 'Village riche · ' : '') + (shd ? '🛡️ protégé encore ' + fmtDur(v.shEnd - S.time) : mine ? 'Tes gardes le défendent' : 'Élimine les gardes pour le conquérir'); }
     if (zk !== S.zoneKey) { S.zoneKey = zk; const z = $('zone'); z.innerHTML = esc(title) + '<small>' + esc(sub) + '</small>'; z.style.opacity = 1; clearTimeout(S.zoneT); S.zoneT = setTimeout(() => { z.style.opacity = 0; }, 2600); }
     if (tier !== S.tier) { S.tier = tier; Sound.setTier(tier); }
     const tg = SKY[tier], kk = Math.min(1, dt * 0.8);
@@ -469,11 +474,12 @@
     sky.near = lerp(sky.near, tg.near, kk); sky.far = lerp(sky.far, tg.far, kk);
 
     // Bouton de pillage : près de la réserve d'un royaume ennemi non protégé.
-    let canLoot = false;
+    let canLoot = false, cap = false;
     if (!S.dead) for (const f of S.forts) { if (!f.o || f.s === me.slot || f.shEnd > S.time) continue; const p = fortWorld(f, D.PLOTS.storage[0], D.PLOTS.storage[1]); if (Math.hypot(p[0] - S.x, p[1] - S.z) < 7.5) canLoot = true; }
+    if (!S.dead) for (const v of S.villages) if (v.s !== me.slot && v.shEnd <= S.time && Math.hypot(v.x - S.x, v.z - S.z) < 8) { canLoot = true; cap = true; }
     const bl = $('btnLoot'), busy = S.lootEnd > S.time;
     if (bl.hidden === canLoot) bl.hidden = !canLoot;
-    if (canLoot) { bl.classList.toggle('busy', busy); bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); bl.querySelector('small').textContent = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : 'Piller'; }
+    if (canLoot) { bl.classList.toggle('busy', busy); const ic = cap ? '🚩' : '💰', lb = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : cap ? 'Conquérir' : 'Piller', sp = bl.querySelector('span'), sm = bl.querySelector('small'); if (sp.textContent !== ic) sp.textContent = ic; if (sm.textContent !== lb) sm.textContent = lb; bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); }
     // Temps de recharge.
     for (let i = 0; i < 3; i++) {
       const el = $('sk' + i), left = S.cds[i] - S.time, was = el.dataset.cd === '1';
@@ -526,6 +532,10 @@
       eng.draw(Models.wall(f.c), MM); eng.draw(Models.banner(), MM, slotColor(f.s));
       for (const b in D.PLOTS) { const p = fortWorld(f, D.PLOTS[b][0], D.PLOTS[b][1]); M4.trs(PM, p[0], 0, p[1], f.rot, 1, 1, 1); eng.draw(Models.building(f.c, b, f.b[b] || 0), PM); }
     }
+    for (const v of S.villages) {
+      if (Math.hypot(v.x - S.x, v.z - S.z) > far + 16) continue;
+      M4.trs(MM, v.x, 0, v.z, 0, 1, 1, 1); eng.draw(Models.village(v.rich), MM); eng.draw(Models.villageFlag(), MM, v.o ? slotColor(v.s) : [0.75, 0.75, 0.75]);
+    }
     for (const n of S.nodes) {
       const dx = n.x - S.x, dz = n.z - S.z; if (dx * dx + dz * dz > far * far) continue;
       const tree = n.type === 'tree', s = n.s * (n.vis === 0 ? (tree ? 1 : 0.4) : tree ? 0.75 + 0.1 * n.vis : 0.55 + 0.15 * n.vis) * (tree && n.rich >= 2 ? 1.25 : 1) * (!tree && n.rich >= 2 ? 1.15 : 1);
@@ -552,6 +562,7 @@
     }
     if (target && !S.dead) { const r = (target.k === 2 ? D.MOBS[target.t].rad : 0.7) * 1.5 + 0.3 + Math.sin(S.time * 6) * 0.08; M4.trs(MM, target.x, 0.1, target.z, S.time, r, 1, r); eng.draw(rg, MM, [1.6, 0.25, 0.2], 0, 0.9, true); }
     for (const f of S.forts) if (f.o && f.shEnd > S.time && Math.hypot(f.x - S.x, f.z - S.z) < far + 26) { const rr = 25.6 + Math.sin(S.time * 2) * 0.25; M4.trs(MM, f.x, 0.14, f.z, 0, rr, 1, rr); eng.draw(rg, MM, [0.35, 0.75, 2.2], 0, 0.6, true); M4.trs(MM, f.x, 0.11, f.z, 0, rr, 1, rr); eng.draw(disc, MM, [0.35, 0.75, 2.2], 0, 0.07, true); }
+    for (const v of S.villages) if (v.shEnd > S.time && Math.hypot(v.x - S.x, v.z - S.z) < far + 16) { M4.trs(MM, v.x, 0.14, v.z, 0, 15.5, 1, 15.5); eng.draw(rg, MM, [0.35, 0.75, 2.2], 0, 0.6, true); }
     for (const r of S.rings) { const t = 1 - r.life / r.max, rad = lerp(r.r0, r.r1, 1 - (1 - t) * (1 - t)); M4.trs(MM, r.x, 0.12, r.z, 0, rad, 1, rad); eng.draw(rg, MM, r.col, 0, (1 - t) * 0.9, true); M4.trs(MM, r.x, 0.1, r.z, 0, rad, 1, rad); eng.draw(disc, MM, r.col, 0, (1 - t) * 0.16, true); }
     eng.setBlend(false);
     overlay();
@@ -605,6 +616,7 @@
     c.fillStyle = '#2f5234'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier1 * k, 0, TAU); c.fill();
     c.fillStyle = '#4b3a47'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier2 * k, 0, TAU); c.fill();
     for (const f of S.forts) { const p = P(f.x, f.z); c.fillStyle = f.o ? D.COLORS[f.s % 8] : 'rgba(255,255,255,.25)'; c.fillRect(p[0] - 6, p[1] - 6, 12, 12); if (S.me && f.s === S.me.slot) { c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(p[0] - 8, p[1] - 8, 16, 16); } }
+    for (const v of S.villages) { const p = P(v.x, v.z); c.fillStyle = v.o ? D.COLORS[v.s % 8] : 'rgba(255,255,255,.55)'; c.beginPath(); c.moveTo(p[0], p[1] - 6); c.lineTo(p[0] + 5, p[1]); c.lineTo(p[0], p[1] + 6); c.lineTo(p[0] - 5, p[1]); c.closePath(); c.fill(); }
     for (const e of S.ents.values()) {
       if (e.id === S.id) continue;
       const p = P(e.x, e.z);

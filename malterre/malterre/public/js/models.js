@@ -132,6 +132,7 @@ const Models = (function () {
     driller: () => humanoid({ skin: hex('#b08d57'), cloth: hex('#4a5560'), limb: hex('#9a7b4a'), head: 'helm', eye: [0.5, 1.6, 2.4], weapon: 'pick', bulk: 0.9 }),
     crossbow: () => humanoid({ skin: hex('#8d9aa8'), cloth: hex('#4a5560'), limb: hex('#7c8896'), head: 'helm', eye: [0.5, 1.6, 2.4], weapon: 'bow', bulk: 0.85 }),
     blade: () => humanoid({ skin: hex('#c9ced6'), cloth: hex('#27406b'), limb: hex('#aab2bd'), head: 'helm', eye: [2.2, 0.5, 0.3], weapon: 'sword', bulk: 0.85 }),
+    militia: () => humanoid({ skin: hex('#d2a680'), cloth: hex('#2f4f7a'), head: 'helm', eye: [0.1, 0.1, 0.1], weapon: 'sword' }),
     wolf: () => quad({ col: hex('#7c7f88'), w: 1, eye: [1.6, 1.3, 0.3] }),
     boar: () => quad({ col: hex('#6b4a33'), w: 1.3, eye: [0.1, 0.1, 0.1], tusks: true }),
     bandit: () => humanoid({ skin: hex('#d2a680'), cloth: hex('#5a4a3a'), head: 'hood', weapon: 'sword' }),
@@ -281,6 +282,22 @@ const Models = (function () {
   function banner() {
     return single('banner', g => { for (const s of [-1, 1]) { const a = s * 0.23, x = Math.sin(a) * 24, z = Math.cos(a) * 24; g.at(x, 3.6, z + 0.85).box(1.3, 2.4, 0.08, [1, 1, 1]); g.at(x, 2.15, z + 0.85, 0, 0, Math.PI / 4).box(0.9, 0.9, 0.08, [1, 1, 1]); } });
   }
+  function village(rich) {
+    return single('village' + rich, g => {
+      const n = rich > 1 ? 7 : 5, wall = rich > 1 ? [0.78, 0.74, 0.66] : [0.72, 0.62, 0.48], roof = rich > 1 ? [0.5, 0.22, 0.18] : [0.62, 0.45, 0.22];
+      g.at(0, 0.03, 0).disc(15, 20, [0.46, 0.4, 0.3]);
+      for (let i = 0; i < n; i++) {
+        const a = i / n * TAU + 0.3, x = Math.sin(a) * 10.5, z = Math.cos(a) * 10.5;
+        g.at(x, 1.3, z, a).box(4, 2.6, 3.4, wall); g.at(x, 2.6, z, a + Math.PI / 4).cyl(3.3, 0, 1.9, 4, roof);
+        g.at(x - Math.sin(a) * 1.72, 0.9, z - Math.cos(a) * 1.72, a).box(0.9, 1.8, 0.1, DARK);
+      }
+      g.at(0, 0, 0).cyl(1.5, 1.5, 0.9, 8, [0.55, 0.55, 0.58]); g.at(0, 0.93, 0).disc(1.2, 8, [0.2, 0.4, 0.7]);
+      g.at(-1.3, 0, 0).cyl(0.1, 0.1, 2.4, 4, WOOD); g.at(1.3, 0, 0).cyl(0.1, 0.1, 2.4, 4, WOOD); g.at(0, 2.4, 0).box(3, 0.16, 0.5, roof);
+      g.at(3, 0, 2).cyl(0.14, 0.14, 6, 5, WOOD);
+      for (const [x, z] of [[5, -4], [-5, 5], [-6, -3]]) g.at(x, 0.4, z, x).box(0.9, 0.8, 0.9, WOOD);
+    });
+  }
+  function villageFlag() { return single('vflag', g => { g.at(3.9, 5.1, 2).box(1.7, 1.3, 0.08, [1, 1, 1]); }); }
   function emptyFort() {
     return single('empty', g => {
       g.at(0, 0.03, 0).disc(24, 24, [0.4, 0.38, 0.33]);
@@ -290,7 +307,7 @@ const Models = (function () {
   }
 
   return {
-    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort,
+    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag,
     cube: () => single('cube', g => g.box(1, 1, 1, [1, 1, 1])),
     disc: () => single('disc', g => g.disc(1, 16, [1, 1, 1])),
     orb: () => single('orb', g => g.ball(1, 1, 1, [1, 1, 1], 6, 4)),
