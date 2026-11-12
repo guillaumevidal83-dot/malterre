@@ -35,6 +35,11 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; letter-spacing: .08
 .round { position: absolute; width: 50px; height: 50px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line); font-size: 22px; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
 .round:active { transform: scale(.93); }
 #btnMenu { right: calc(12px + var(--sar)); top: calc(134px + var(--sat)); border-color: var(--gold); }
+#btnOrder { right: calc(180px + var(--sar)); bottom: calc(92px + var(--sab)); width: 54px; height: 54px; border-color: #ff9b90; background: radial-gradient(circle at 35% 30%, #7d3a34, #3a1512); }
+.tasks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.task { background: rgba(0, 0, 0, .3); border-radius: 10px; padding: 4px; display: flex; align-items: center; justify-content: space-between; gap: 2px; font-size: 15px; }
+.task b { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; } .task .step { width: 30px; height: 30px; font-size: 17px; border-radius: 8px; }
+.card.col { display: block; } .card.col .top { display: flex; gap: 10px; align-items: center; }
 #btnMenu.pulse { animation: pulse 1.4s infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(241, 199, 91, .0), 0 0 18px 4px rgba(241, 199, 91, .8); } }
 #zone { position: absolute; left: 0; right: 0; top: 22%; text-align: center; font-family: Georgia, serif; font-size: 22px; letter-spacing: .14em; text-shadow: 0 2px 8px #000, 0 0 2px #000; opacity: 0; transition: opacity .8s; pointer-events: none; }

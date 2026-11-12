@@ -19,7 +19,7 @@
     camYaw: 0, camPitch: 0.52, camDist: 15, lastDrag: -9,
     cds: [0, 0, 0], cdMax: [1, 1, 1], nextAtk: 0, atkHeld: false, recallAt: 0,
     shake: 0, floats: [], parts: [], rings: [], projs: [], time: 0, tier: 0, zoneKey: '', seen: 0, sfxBudget: 0,
-    lootEnd: 0, lootDur: 1, quality: store.get('malterre_q') || 'med', tab: 'fort', sheet: false, deathAt: 0, lastSend: 0, lastSent: '', pending: null,
+    lootEnd: 0, lootDur: 1, dg: null, bossEnd: 0, btnMode: '', quality: store.get('malterre_q') || 'med', tab: 'fort', sheet: false, deathAt: 0, lastSend: 0, lastSent: '', pending: null,
   };
   const ICON = {}; for (const c in D.CLASSES) ICON[c] = D.CLASSES[c].icon;
   const BICON = { throne: '👑', storage: '📦', barracks: '⚰️', altar: '🔮', workshop: '⚒️' };
@@ -56,7 +56,20 @@
       case 'me': S.me = m; updHero(); updRes(); if (S.sheet) renderSheet(); break;
       case 'roster': S.roster.clear(); for (const p of m.r) S.roster.set(p.id, p); $('online').textContent = m.r.length + ' en ligne'; break;
       case 'fort': S.forts[m.f.s] = stamp(m.f); S.zoneKey = ''; if (S.sheet) renderSheet(); break;
-      case 'relic': { const r = D.RELICS[m.id]; modal('<div style="font-size:54px">' + r.icon + '</div><h2>Relique trouvée !</h2><p class="gain">' + esc(r.name) + '</p><p>' + esc(r.desc) + '</p><p>' + (m.auto ? 'Elle est équipée (' + D.RELIC_TYPES[r.type] + ').' : 'Équipe-la depuis l\'onglet Héros.') + '</p><button class="btn gold wide" id="modalOk">Parfait</button>'); Sound.play('levelup'); Sound.vibrate([50, 50, 50, 50, 200]); break; }
+      case 'relic': { const r = D.RELICS[m.id]; if (S.dg) { toast('🏺 Relique trouvée : ' + r.name + ' !', 'good'); Sound.play('levelup'); break; } modal('<div style="font-size:54px">' + r.icon + '</div><h2>Relique trouvée !</h2><p class="gain">' + esc(r.name) + '</p><p>' + esc(r.desc) + '</p><p>' + (m.auto ? 'Elle est équipée (' + D.RELIC_TYPES[r.type] + ').' : 'Équipe-la depuis l\'onglet Héros.') + '</p><button class="btn gold wide" id="modalOk">Parfait</button>'); Sound.play('levelup'); Sound.vibrate([50, 50, 50, 50, 200]); break; }
+      case 'boss': S.bossEnd = S.time + m.s; S.zoneKey = ''; break;
+      case 'dg':
+        if (m.state === 'out') { S.dg = null; $('modal').hidden = true; }
+        else if (m.state === 'fight') { if (S.dg) { S.dg.floor = m.floor; S.dg.state = 'fight'; } $('modal').hidden = true; S.zoneKey = ''; toast((m.boss ? '☠️ Boss — ' : '🌀 ') + 'Étage ' + m.floor, m.boss ? 'err' : 'good'); Sound.play(m.boss ? 'alert' : 'summon'); }
+        else if (m.state === 'clear') {
+          if (S.dg) S.dg.state = 'clear';
+          modal('<h2>🌀 Étage ' + m.floor + ' vaincu !</h2>' + (m.best ? '<p style="color:var(--gold)">Nouveau record personnel</p>' : '') + Object.keys(m.reward).map(r => '<div class="gain">+' + m.reward[r] + ' ' + resIcon(r) + '</div>').join('') +
+            '<p>L\'étage suivant sera plus dur. Tu gardes tes gains même si tu tombes.</p><button class="btn gold wide" id="dgNext">Étage ' + (m.floor + 1) + ' →</button><button class="btn wide" id="dgExit">Sortir du donjon</button>');
+          $('dgNext').onclick = () => { send({ t: 'dgnext' }); $('modal').hidden = true; Sound.play('click'); };
+          $('dgExit').onclick = () => { send({ t: 'dgexit' }); $('modal').hidden = true; Sound.play('click'); };
+          Sound.play('levelup'); Sound.vibrate([40, 40, 120]);
+        }
+        break;
       case 'vill': S.villages[m.v.id] = stamp(m.v); S.zoneKey = ''; break;
       case 'alert': toast(m.m, 'err'); Sound.play('alert'); Sound.vibrate([80, 60, 80, 60, 160]); break;
       case 'lootc': S.lootEnd = S.time + m.s; S.lootDur = m.s; Sound.play('summon'); break;
@@ -71,6 +84,8 @@
       case 'cd': S.cds[m.i] = S.time + m.s; S.cdMax[m.i] = m.s; break;
       case 'tp':
         S.x = m.x; S.z = m.z;
+        if ('dg' in m) { S.dg = m.dg; S.zoneKey = ''; Sound.play('recall'); ring(m.x, m.z, 0.5, 6, 0.8, [1.4, 0.5, 2.4]); if (!m.dg) $('modal').hidden = true; }
+        if (m.alive) S.dg = null;
         if (m.alive) { S.dead = false; $('deathScreen').hidden = true; Sound.play('recall'); }
         if (m.recall) { Sound.play('recall'); ring(m.x, m.z, 0.5, 5, 0.6, [0.7, 0.5, 1.6]); S.recallAt = S.time + 30; }
         break;
@@ -84,7 +99,7 @@
   function onWelcome(m) {
     S.wcls = m.cls; S.id = m.id; S.x = m.x; S.z = m.z; S.r = m.r; S.camYaw = m.r; S.cfg = m.cfg; S.dead = false;
     S.nodes = m.nodes.map(n => ({ id: n[0], type: n[1], x: n[2], z: n[3], rich: n[4], vis: n[5], variant: n[0] % 3, rot: (n[0] * 2.399) % TAU, s: 0.85 + ((n[0] * 7) % 10) / 28 }));
-    S.villages = (m.villages || []).map(stamp); S.forts = m.forts.map(stamp); S.lootEnd = 0; S.zoneKey = ''; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
+    S.dg = null; S.bossEnd = m.boss ? S.time + m.boss : 0; S.villages = (m.villages || []).map(stamp); S.forts = m.forts.map(stamp); S.lootEnd = 0; S.zoneKey = ''; S.ents.clear(); S.parts = []; S.floats = []; S.rings = []; S.projs = [];
     store.set('malterre_name', m.name); store.set('malterre_tok', m.tok);
     S.pending = null; S.inGame = true;
     $('login').hidden = true; $('hud').hidden = false; $('net').hidden = true; $('deathScreen').hidden = true;
@@ -156,6 +171,7 @@
       if (src) src.atkT = S.time; if (mine) S.atkT = S.time;
       const fc = src && src.k === 0 && D.CLASSES[src.t] ? D.CLASSES[src.t].fx : [0.9, 0.4, 2.2], fc2 = [fc[0] * 0.6 + 0.3, fc[1] * 0.6 + 0.3, fc[2] * 0.6 + 0.3];
       if (name === 'swing') sfx('swing', x, z);
+      else if (name === 'order') { ring(x, z, r + 3, r, 0.5, [2.4, 0.4, 0.3]); ring(x, z, r + 1.5, r, 0.8, [2.4, 0.4, 0.3]); Sound.play('alert'); Sound.vibrate([20, 30, 20]); }
       else if (name === 'chop') { burst(x, 1.2, z, ev[6] === 'wood' ? [0.5, 0.34, 0.2] : ev[6] === 'gold' ? [1.6, 1.2, 0.3] : [0.6, 0.6, 0.62], 6, 3); sfx('hit', x, z); if (mine) { S.r = Math.atan2(x - S.x, z - S.z); floatText(x, 2.6, z, '+' + ev[4] + ' ' + resIcon(ev[6]), '#ffe29a', 15, 1); Sound.vibrate(10); } }
       else if (name === 'bolt') { S.projs.push({ x0: x, y0: 2.4, z0: z, x1: ev[6], y1: 1.2, z1: ev[7], t: 0, dur: 0.22, col: fc, size: 0.6, boom: fc }); sfx('bigbolt', x, z); if (mine) Sound.vibrate([15, 20, 40]); }
       else if (name === 'nova') { const nc = src && src.t === 'lich' ? [0.25, 0.7, 2.2] : fc; ring(x, z, 0.5, r, 0.5, nc); ring(x, z, 0.2, r * 0.7, 0.65, [nc[0] * 0.7 + 0.3, nc[1] * 0.7 + 0.3, nc[2] * 0.7 + 0.2]); for (let i = 0; i < 26; i++) { const a = i / 26 * TAU; part(x + Math.sin(a) * 1.5, 0.6, z + Math.cos(a) * 1.5, Math.sin(a) * 13, 1.5, Math.cos(a) * 13, 0.55, 0.3, nc, 2); } sfx('nova', x, z); if (mine) Sound.vibrate([20, 30, 50]); }
@@ -227,6 +243,7 @@
     if (!S.inGame || e.target.tagName === 'INPUT') return;
     keys[e.code] = true;
     if (e.code === 'Space') { S.atkHeld = true; e.preventDefault(); }
+    if (e.code === 'KeyF') send({ t: 'order' });
     if (e.code === 'Digit1') skill(0); if (e.code === 'Digit2') skill(1); if (e.code === 'Digit3') skill(2);
     if (e.code === 'KeyE' || e.code === 'Tab') { e.preventDefault(); toggleSheet(); }
     if (e.code === 'Escape' && S.sheet) toggleSheet();
@@ -244,7 +261,8 @@
     send({ t: 'sk', i });
   }
   for (let i = 0; i < 3; i++) $('sk' + i).addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); skill(i); });
-  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.lootEnd <= S.time) send({ t: 'loot' }); });
+  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.btnMode === 'dg') send({ t: 'dgenter' }); else if (S.lootEnd <= S.time) send({ t: 'loot' }); });
+  $('btnOrder').addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); if (!S.dead) send({ t: 'order' }); });
   $('btnMenu').addEventListener('click', () => { Sound.init(); toggleSheet(); });
   $('sheetClose').addEventListener('click', () => toggleSheet());
 
@@ -308,33 +326,23 @@
     } else if (S.tab === 'minions') {
       const alive = me.minions.filter(m => !m[2]).length, down = me.minions.filter(m => m[2]);
       h += '<div class="stat"><div>Serviteurs<b>' + me.minions.length + ' / ' + me.mcap + '</b></div><div>Hors de combat<b>' + down.length + (down.length ? ' <small>(' + Math.min(...down.map(m => m[2])) + ' s)</small>' : '') + '</b></div></div>';
-      h += '<div class="sec">Invoquer</div>';
+      h += '<div class="note" style="margin-top:8px">Une carte par type de serviteur : invoque, puis répartis-les entre les tâches avec − et +. Ceux qui restent gardent la forteresse. Sacrifier rend ' + Math.round((S.cfg.refund || 0) * 100) + ' % du coût.</div>';
+      const TASKS = ['wood', 'stone', 'gold', 'spec', 'escort'];
       for (const mt of cls.minions) {
-        const def = D.MINIONS[mt], locked = (me.b.barracks || 0) < def.unlock, full = me.minions.length >= me.mcap;
+        const def = D.MINIONS[mt], locked = (me.b.barracks || 0) < def.unlock, full = me.minions.length >= me.mcap, mine = me.minions.filter(m => m[0] === mt), n = mine.length;
         const mc = D.minionCost(mt, me.cls); let ok = !locked && !full; for (const r in mc) if ((me.res[r] || 0) < mc[r]) ok = false;
-        const n = me.minions.filter(m => m[0] === mt).length;
-        h += '<div class="card"><div class="big">' + def.icon + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p><b style="color:var(--acc)">' + def.tag + '</b> · Vie ' + def.hp + ' · Dégâts ' + def.dmg + (def.range ? ' · Portée ' + def.range : '') + ' · Récolte ×' + def.work + '</p>' + costHtml(mc) +
+        const free = mine.filter(m => m[1] === 'guard').length;
+        h += '<div class="card col' + (n ? ' on' : '') + '"><div class="top"><div class="big">' + def.icon + '</div><div class="mid"><h3>' + def.name + '<em>× ' + n + '</em></h3><p><b style="color:var(--acc)">' + def.tag + '</b> · Vie ' + def.hp + ' · Dégâts ' + def.dmg + (def.range ? ' · Portée ' + def.range : '') + ' · Récolte ×' + def.work + '</p>' + costHtml(mc) +
           (locked ? '<p style="color:var(--bad)">' + esc(cls.bnames.barracks) + ' niveau ' + def.unlock + ' requis</p>' : full ? '<p style="color:var(--bad)">Limite atteinte : améliore ' + esc(cls.bnames.barracks) + '</p>' : '') + '</div>' +
-          '<div class="side"><button class="btn' + (ok ? ' gold' : '') + '" data-act="summon" data-arg="' + mt + '"' + (ok ? '' : ' disabled') + '>Invoquer</button>' +
-          (n ? '<button class="btn red small" data-act="dismiss" data-arg="' + mt + '">Sacrifier</button>' : '') + '</div></div>';
+          '<div class="side"><button class="btn' + (ok ? ' gold' : '') + '" data-act="summon" data-arg="' + mt + '"' + (ok ? '' : ' disabled') + '>Invoquer</button>' + (n ? '<button class="btn red small" data-act="dismiss" data-arg="' + mt + '">Sacrifier</button>' : '') + '</div></div>';
+        if (n) {
+          h += '<div class="tasks">';
+          for (const r of TASKS) { const k = mine.filter(m => m[1] === r).length; h += '<div class="task"><span title="' + (r === 'escort' ? 'Escorte' : resName(r)) + '">' + (r === 'escort' ? '⚔️' : resIcon(r)) + '</span><button class="step" data-act="role2" data-arg="' + mt + '" data-r="' + r + '" data-d="-1"' + (k ? '' : ' disabled') + '>−</button><b>' + k + '</b><button class="step" data-act="role2" data-arg="' + mt + '" data-r="' + r + '" data-d="1"' + (free ? '' : ' disabled') + '>+</button></div>'; }
+          h += '<div class="task" style="justify-content:center;gap:8px"><span>🛡️</span><b>' + free + '</b><small style="color:var(--dim)">en garde</small></div></div>';
+        }
+        h += '</div>';
       }
-      h += '<div class="note">Sacrifier un serviteur rend ' + Math.round((S.cfg.refund || 0) * 100) + ' % de son coût et libère une place. Celui qui garde la forteresse part en premier.</div>';
-      h += '<div class="sec">Répartition rapide</div>';
-      const free = me.minions.filter(m => m[1] === 'guard').length;
-      for (const r of ['wood', 'stone', 'gold', 'spec', 'escort']) {
-        const n = me.minions.filter(m => m[1] === r).length, name = r === 'escort' ? 'Escorte' : 'Récolter : ' + resName(r), icon = r === 'escort' ? '⚔️' : resIcon(r);
-        h += '<div class="role"><span style="font-size:20px">' + icon + '</span><div class="n">' + name + (r === 'escort' ? '<small>Te suivent et combattent</small>' : '') + '</div>' +
-          '<button class="step" data-act="role" data-arg="' + r + '" data-d="-1"' + (n ? '' : ' disabled') + '>−</button><b>' + n + '</b><button class="step" data-act="role" data-arg="' + r + '" data-d="1"' + (free ? '' : ' disabled') + '>+</button></div>';
-      }
-      h += '<div class="role"><span style="font-size:20px">🛡️</span><div class="n">Garde de la forteresse<small>Disponibles pour une autre tâche</small></div><b>' + free + '</b></div>';
-      h += '<div class="sec">Affecter chaque serviteur</div><div class="note">Choisis la tâche de chacun : envoie tes récolteurs experts aux ressources, tes tireurs et assaillants en escorte, tes défenseurs en garde.</div>';
-      const order = me.minions.map((m, i) => i).sort((a, b) => cls.minions.indexOf(me.minions[a][0]) - cls.minions.indexOf(me.minions[b][0]) || a - b);
-      for (const i of order) {
-        const m = me.minions[i], def = D.MINIONS[m[0]];
-        h += '<div class="role"><span style="font-size:20px">' + def.icon + '</span><div class="n">' + def.name + '<small>' + def.tag + (m[2] ? ' · hors de combat (' + m[2] + ' s)' : '') + '</small></div><select data-mi="' + i + '">' +
-          ['wood', 'stone', 'gold', 'spec', 'escort', 'guard'].map(r => '<option value="' + r + '"' + (m[1] === r ? ' selected' : '') + '>' + (r === 'escort' ? '⚔️ Escorte' : r === 'guard' ? '🛡️ Garde' : resIcon(r) + ' ' + resName(r)) + '</option>').join('') + '</select></div>';
-      }
-      h += '<div class="note" style="margin-top:8px">' + alive + ' serviteur(s) actif(s). Un serviteur vaincu revient après ' + S.cfg.minionRevive + ' s.</div>';
+      h += '<div class="note">Tâches : ' + TASKS.map(r => (r === 'escort' ? '⚔️ escorte' : resIcon(r) + ' ' + resName(r).toLowerCase())).join(' · ') + ' · 🛡️ garde. Le bouton 🎯 en jeu envoie toute ton escorte sur la cible visée. ' + alive + ' serviteur(s) actif(s) ; un serviteur vaincu revient après ' + Math.round(S.cfg.minionRevive * (cls.passive.revive || 1)) + ' s.</div>';
     } else if (S.tab === 'craft') {
       const wl = me.b.workshop || 0;
       if (!wl) h += '<div class="card"><div class="big">⚒️</div><div class="mid"><h3>' + esc(cls.bnames.workshop) + ' à construire</h3><p>Construis ce bâtiment dans l\'onglet Forteresse pour fabriquer de l\'équipement pour ton héros et tes serviteurs.</p></div></div>';
@@ -351,7 +359,7 @@
         }
       }
     } else if (S.tab === 'hero') {
-      h += '<div class="stat"><div>' + cls.title + '<b>' + ICON[me.cls] + ' ' + cls.name + ' niv. ' + me.lvl + '</b></div><div>Expérience<b>' + me.xp + ' / ' + me.need + '</b></div><div>Vie<b>' + S.mh + '</b></div><div>Dégâts<b>' + me.dmg + '</b></div><div>Monstres vaincus<b>' + me.kills + '</b></div><div>Royaume<b>n° ' + (me.slot + 1) + '</b></div></div>';
+      h += '<div class="stat"><div>' + cls.title + '<b>' + ICON[me.cls] + ' ' + cls.name + ' niv. ' + me.lvl + '</b></div><div>Expérience<b>' + me.xp + ' / ' + me.need + '</b></div><div>Vie<b>' + S.mh + '</b></div><div>Dégâts<b>' + me.dmg + '</b></div><div>Monstres vaincus<b>' + me.kills + '</b></div><div>Donjon, meilleur étage<b>' + (me.dgBest || 0) + '</b></div><div>Royaume<b>n° ' + (me.slot + 1) + '</b></div></div>';
       h += '<div class="card on"><div class="big">★</div><div class="mid"><h3>' + esc(cls.passive.name) + '<em>atout de classe</em></h3><p>' + esc(cls.passive.desc) + '</p></div></div>';
       const rel = me.relics || [], eq = me.eq || {};
       h += '<div class="sec">Reliques (' + rel.length + ' / ' + Object.keys(D.RELICS).length + ')</div>';
@@ -363,8 +371,16 @@
       }
       h += '<div class="sec">Compétences</div>';
       for (const sk of cls.skills) h += '<div class="card"><div class="big">' + sk.icon + '</div><div class="mid"><h3>' + sk.name + '<em>' + sk.cd + ' s</em></h3><p>' + sk.desc + '</p></div></div>';
-      h += '<div class="sec">Seigneurs en ligne</div>';
-      for (const p of S.roster.values()) h += '<div class="role"><span style="font-size:20px">' + ICON[p.c] + '</span><div class="n" style="color:' + D.COLORS[p.s % 8] + '">' + esc(p.n) + '<small>' + D.CLASSES[p.c].name + ' niv. ' + p.l + '</small></div></div>';
+      h += '<div class="sec">Seigneurs et alliances</div><div class="note">Deux alliés ne peuvent plus se blesser ni se piller, défendent ensemble leurs forteresses et entrent dans le même donjon. L\'alliance est active quand vous vous êtes choisis tous les deux.</div>';
+      const al = {}; for (const a of me.allies || []) al[a[0]] = a[1];
+      const online = new Set([...S.roster.values()].map(p => p.n));
+      const lords = S.forts.filter(f => f.o && f.s !== me.slot);
+      if (!lords.length) h += '<div class="note">Aucun autre seigneur pour l\'instant.</div>';
+      for (const f of lords) {
+        const st = al[f.o] || '';
+        h += '<div class="role"><span style="font-size:20px">' + ICON[f.c] + '</span><div class="n" style="color:' + D.COLORS[f.s % 8] + '">' + esc(f.o) + (st === 'on' ? ' 🤝' : '') + '<small>' + D.CLASSES[f.c].name + ' niv. ' + f.l + ' · ' + (online.has(f.o) ? 'en ligne' : 'hors ligne') + (st === 'sent' ? ' · proposition envoyée' : st === 'recv' ? ' · te propose une alliance' : st === 'on' ? ' · allié' : '') + '</small></div>' +
+          '<button class="btn small' + (st === 'recv' ? ' gold' : st === 'on' ? ' red' : '') + '" style="margin:0" data-act="ally" data-arg="' + esc(f.o) + '">' + (st === 'on' ? 'Rompre' : st === 'sent' ? 'Annuler' : st === 'recv' ? 'Accepter' : 'Proposer') + '</button></div>';
+      }
     } else {
       h += '<div class="row"><label>🎵 Musique et ambiance</label><input type="range" min="0" max="100" value="' + Math.round(Sound.set.music * 100) + '" data-set="music"></div>';
       h += '<div class="row"><label>🔊 Effets sonores</label><input type="range" min="0" max="100" value="' + Math.round(Sound.set.sfx * 100) + '" data-set="sfx"></div>';
@@ -384,6 +400,8 @@
     if (act === 'build') send({ t: 'build', b: arg });
     else if (act === 'summon') send({ t: 'summon', m: arg });
     else if (act === 'dismiss') send({ t: 'dismiss', m: arg });
+    else if (act === 'role2') send({ t: 'role2', m: arg, r: b.dataset.r, d: +b.dataset.d });
+    else if (act === 'ally') send({ t: 'ally', n: arg });
     else if (act === 'craft') send({ t: 'craft', c: arg });
     else if (act === 'equip') send({ t: 'equip', r: arg });
     else if (act === 'role') send({ t: 'role', r: arg, d: +b.dataset.d });
@@ -419,6 +437,7 @@
   function fortWorld(f, lx, lz) { const c = Math.cos(f.rot), s = Math.sin(f.rot); return [f.x + lx * c + lz * s, f.z - lx * s + lz * c]; }
   function pushOut(cx, cz, rad) { const dx = S.x - cx, dz = S.z - cz, d = Math.hypot(dx, dz); if (d < rad && d > 1e-4) { S.x = cx + dx / d * rad; S.z = cz + dz / d * rad; } }
   function collide() {
+    if (S.dg) { const dx = S.x - S.dg.cx, dz = S.z - S.dg.cz, d = Math.hypot(dx, dz), lim = D.DUNGEON.radius - 1.5; if (d > lim) { S.x = S.dg.cx + dx / d * lim; S.z = S.dg.cz + dz / d * lim; } return; }
     for (const n of S.nodes) { if (Math.abs(n.x - S.x) > 4 || Math.abs(n.z - S.z) > 4) continue; pushOut(n.x, n.z, n.type === 'tree' ? 1.0 : n.type === 'remains' ? 1.2 : 1.7 * n.s); }
     for (const f of S.forts) {
       if (!f.o || Math.abs(f.x - S.x) > 30 || Math.abs(f.z - S.z) > 30) continue;
@@ -471,9 +490,11 @@
     if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 2.2);
 
     // Zone et ambiance.
-    const r = Math.hypot(S.x, S.z), tier = r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
+    const r = Math.hypot(S.x, S.z), tier = S.dg ? 3 : r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
     let zk = 'z' + tier, title = ZONES[tier], sub = ZSUB[tier];
     for (const f of S.forts) if (Math.hypot(f.x - S.x, f.z - S.z) < 25) { const shd = f.shEnd > S.time; zk = 'f' + f.s + (f.o || '') + (shd ? 's' : ''); title = f.o ? (f.s === me.slot ? 'Ta forteresse' : 'Royaume de ' + f.o) : 'Terre sans maître'; sub = f.o ? D.CLASSES[f.c].name + ' niv. ' + f.l + (shd ? ' · 🛡️ protégé encore ' + fmtDur(f.shEnd - S.time) : f.s === me.slot ? ' · ⚠️ exposée aux raids' : ' · ⚔️ pillage possible') : 'Un royaume peut être fondé ici'; }
+    if (!S.dg && r < 45) { const dead = S.bossEnd > S.time; zk = 'boss' + (dead ? Math.ceil((S.bossEnd - S.time) / 300) : 'a'); title = 'Antre du Gardien'; sub = dead ? 'Le Gardien reviendra dans ' + fmtDur(S.bossEnd - S.time) : 'Le Gardien de Malterre veille'; }
+    if (S.dg) { zk = 'dg' + S.dg.floor; title = 'Donjon — étage ' + S.dg.floor; sub = S.dg.floor % 5 === 0 ? 'Étage de boss' : 'Élimine tous les monstres'; }
     for (const v of S.villages) if (Math.hypot(v.x - S.x, v.z - S.z) < 20) { const shd = v.shEnd > S.time, mine = v.s === me.slot; zk = 'v' + v.id + (v.o || '') + (shd ? 's' : ''); title = v.o ? (mine ? 'Ton village' : 'Village de ' + v.o) : 'Village libre'; sub = (v.rich > 1 ? 'Village riche · ' : '') + (shd ? '🛡️ protégé encore ' + fmtDur(v.shEnd - S.time) : mine ? 'Tes gardes le défendent' : 'Élimine les gardes pour le conquérir'); }
     if (zk !== S.zoneKey) { S.zoneKey = zk; const z = $('zone'); z.innerHTML = esc(title) + '<small>' + esc(sub) + '</small>'; z.style.opacity = 1; clearTimeout(S.zoneT); S.zoneT = setTimeout(() => { z.style.opacity = 0; }, 2600); }
     if (tier !== S.tier) { S.tier = tier; Sound.setTier(tier); }
@@ -485,9 +506,12 @@
     let canLoot = false, cap = false;
     if (!S.dead) for (const f of S.forts) { if (!f.o || f.s === me.slot || f.shEnd > S.time) continue; const p = fortWorld(f, D.PLOTS.storage[0], D.PLOTS.storage[1]); if (Math.hypot(p[0] - S.x, p[1] - S.z) < 7.5) canLoot = true; }
     if (!S.dead) for (const v of S.villages) if (v.s !== me.slot && v.shEnd <= S.time && Math.hypot(v.x - S.x, v.z - S.z) < 8) { canLoot = true; cap = true; }
-    const bl = $('btnLoot'), busy = S.lootEnd > S.time;
+    let dgBtn = false;
+    if (!S.dead && !S.dg && !canLoot) for (const f of S.forts) { if (!f.o) continue; const p = fortWorld(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); if (Math.hypot(p[0] - S.x, p[1] - S.z) < 6.5) { dgBtn = true; canLoot = true; } }
+    S.btnMode = dgBtn ? 'dg' : cap ? 'cap' : 'loot';
+    const bl = $('btnLoot'), busy = S.lootEnd > S.time && !dgBtn;
     if (bl.hidden === canLoot) bl.hidden = !canLoot;
-    if (canLoot) { bl.classList.toggle('busy', busy); const ic = cap ? '🚩' : '💰', lb = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : cap ? 'Conquérir' : 'Piller', sp = bl.querySelector('span'), sm = bl.querySelector('small'); if (sp.textContent !== ic) sp.textContent = ic; if (sm.textContent !== lb) sm.textContent = lb; bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); }
+    if (canLoot) { bl.classList.toggle('busy', busy); const ic = dgBtn ? '🌀' : cap ? '🚩' : '💰', lb = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : dgBtn ? 'Donjon' : cap ? 'Conquérir' : 'Piller', sp = bl.querySelector('span'), sm = bl.querySelector('small'); if (sp.textContent !== ic) sp.textContent = ic; if (sm.textContent !== lb) sm.textContent = lb; bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); }
     // Temps de recharge.
     for (let i = 0; i < 3; i++) {
       const el = $('sk' + i), left = S.cds[i] - S.time, was = el.dataset.cd === '1';
@@ -530,13 +554,15 @@
     const sh = S.shake * S.shake, sx = (Math.random() - 0.5) * sh, sy = (Math.random() - 0.5) * sh;
     const cp = Math.cos(S.camPitch), eye = [S.x - Math.sin(S.camYaw) * cp * S.camDist + sx, 2 + Math.sin(S.camPitch) * S.camDist + sy, S.z - Math.cos(S.camYaw) * cp * S.camDist];
     eng.begin(eye, [S.x + sx, 2.1 + sy, S.z], sky.fog, sky.near, sky.far, sky.amb, sky.sun);
-    M4.trs(MM, 0, 0, 0, 0, 1, 1, 1); eng.draw(Models.terrain(), MM);
+    if (S.dg) { M4.trs(MM, S.dg.cx, 0, S.dg.cz, 0, 1, 1, 1); eng.draw(Models.dungeonFloor(), MM); }
+    else { M4.trs(MM, 0, 0, 0, 0, 1, 1, 1); eng.draw(Models.terrain(), MM); }
     const far = sky.far + 12;
 
     for (const f of S.forts) {
       if (Math.hypot(f.x - S.x, f.z - S.z) > far + 26) continue;
       M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1);
       if (!f.o) { eng.draw(Models.emptyFort(), MM); continue; }
+      { const pp = fortWorld(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); M4.trs(PM, pp[0], 0, pp[1], f.rot + 0.4, 1, 1, 1); eng.draw(Models.portal(), PM); M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1); }
       eng.draw(Models.wall(f.c), MM); eng.draw(Models.banner(), MM, slotColor(f.s));
       for (const b in D.PLOTS) { const p = fortWorld(f, D.PLOTS[b][0], D.PLOTS[b][1]); M4.trs(PM, p[0], 0, p[1], f.rot, 1, 1, 1); eng.draw(Models.building(f.c, b, f.b[b] || 0), PM); }
     }
@@ -597,7 +623,7 @@
         octx.fillStyle = e.k === 2 || (e.fl & 32) ? '#e0483c' : e.o === S.id ? '#58c97a' : '#5aa9e6'; octx.fillRect(p[0] - bw / 2, p[1], bw * clamp(e.hp / e.mh, 0, 1), bh);
       }
       if (named && d < 45) {
-        const ro = S.roster.get(e.id), label = e.k === 0 ? (ro ? ro.n + ' · ' + ro.l : '') : mob.name;
+        const ro = S.roster.get(e.id), label = e.k === 0 ? (ro ? ro.n + ' · ' + ro.l + (S.me && (S.me.allies || []).some(a => a[0] === ro.n && a[1] === 'on') ? ' 🤝' : '') : '') : mob.name;
         octx.font = '600 12px system-ui, sans-serif'; octx.strokeStyle = 'rgba(0,0,0,.8)'; octx.lineWidth = 3; octx.strokeText(label, p[0], p[1] - 5);
         octx.fillStyle = e.k === 0 ? D.COLORS[(ro ? ro.s : 0) % 8] : mob.boss ? '#ffb347' : '#ffd9a0'; octx.fillText(label, p[0], p[1] - 5);
       }
@@ -620,6 +646,14 @@
   function minimap() {
     const c = mctx, W = 220, R = 104, k = R / (WR + 5), cx = W / 2, cy = W / 2, P = (x, z) => [cx - x * k, cy - z * k];
     c.clearRect(0, 0, W, W);
+    if (S.dg) {
+      const kk = R / (D.DUNGEON.radius + 4), Q = (x, z) => [cx - (x - S.dg.cx) * kk, cy - (z - S.dg.cz) * kk];
+      c.fillStyle = '#2a2233'; c.beginPath(); c.arc(cx, cy, D.DUNGEON.radius * kk, 0, TAU); c.fill();
+      for (const e of S.ents.values()) { if (e.id === S.id) continue; const q = Q(e.x, e.z); c.fillStyle = e.k === 2 ? '#ff4d40' : e.k === 0 ? '#fff' : '#9dffb4'; const sz = e.k === 2 ? 7 : 5; c.fillRect(q[0] - sz / 2, q[1] - sz / 2, sz, sz); }
+      const q = Q(S.x, S.z); c.save(); c.translate(q[0], q[1]); c.rotate(-S.r); c.fillStyle = '#fff'; c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 7); c.lineTo(0, 3); c.lineTo(-6, 7); c.closePath(); c.fill(); c.restore();
+      c.fillStyle = '#e9d9ff'; c.font = '700 22px Georgia, serif'; c.textAlign = 'center'; c.fillText('Étage ' + S.dg.floor, cx, W - 26);
+      return;
+    }
     c.fillStyle = '#4f7a3c'; c.beginPath(); c.arc(cx, cy, WR * k, 0, TAU); c.fill();
     c.fillStyle = '#2f5234'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier1 * k, 0, TAU); c.fill();
     c.fillStyle = '#4b3a47'; c.beginPath(); c.arc(cx, cy, D.WORLD.tier2 * k, 0, TAU); c.fill();

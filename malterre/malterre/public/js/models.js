@@ -298,6 +298,24 @@ const Models = (function () {
     });
   }
   function villageFlag() { return single('vflag', g => { g.at(3.9, 5.1, 2).box(1.7, 1.3, 0.08, [1, 1, 1]); }); }
+  function portal() {
+    return single('portal', g => {
+      const st = [0.3, 0.28, 0.36];
+      g.at(0, 0.15, 0).cyl(3.2, 3.4, 0.3, 10, [0.22, 0.2, 0.27]);
+      for (const x of [-2, 2]) { g.at(x, 0.3, 0).cyl(0.55, 0.45, 4.6, 6, st); g.at(x, 4.9, 0).ball(0.4, 0.5, 0.4, [1.4, 0.5, 2.4], 5, 3); }
+      g.at(0, 5.0, 0).box(5.2, 0.6, 0.9, st);
+      g.at(0, 2.6, 0).box(3.3, 4.4, 0.12, [1.1, 0.35, 2.1]); g.at(0, 2.6, 0).box(2.3, 3.4, 0.2, [1.9, 1.1, 2.6]);
+    });
+  }
+  function dungeonFloor() {
+    return single('dgfloor', g => {
+      const R = rng(99), rad = DATA.DUNGEON.radius;
+      g.at(0, 0.02, 0).disc(rad + 2, 32, [0.2, 0.18, 0.24]); g.at(0, 0.04, 0).disc(rad * 0.55, 24, [0.25, 0.22, 0.3]); g.at(0, 0.06, 0).disc(4, 12, [0.4, 0.2, 0.55]);
+      for (let i = 0; i < 28; i++) { const a = i / 28 * TAU, x = Math.sin(a) * (rad + 0.8), z = Math.cos(a) * (rad + 0.8), h = 5 + (i % 3) * 1.5; g.at(x, h / 2, z, a).box(3.2, h, 1.6, i % 2 ? [0.2, 0.19, 0.25] : [0.26, 0.24, 0.32]); if (i % 4 === 0) g.at(x, h + 0.4, z).ball(0.4, 0.55, 0.4, [1.6, 0.6, 2.4], 5, 3); }
+      for (let i = 0; i < 40; i++) { const a = R() * TAU, r = Math.sqrt(R()) * rad * 0.95; g.at(Math.sin(a) * r, 0.1, Math.cos(a) * r, R() * 3).box(0.5 + R(), 0.2, 0.5 + R(), [0.3, 0.28, 0.34]); }
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.4; g.at(Math.sin(a) * 18, 0, Math.cos(a) * 18).cyl(1, 0.8, 6, 6, [0.24, 0.22, 0.3]); }
+    });
+  }
   function emptyFort() {
     return single('empty', g => {
       g.at(0, 0.03, 0).disc(24, 24, [0.4, 0.38, 0.33]);
@@ -307,7 +325,7 @@ const Models = (function () {
   }
 
   return {
-    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag,
+    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag, portal, dungeonFloor,
     cube: () => single('cube', g => g.box(1, 1, 1, [1, 1, 1])),
     disc: () => single('disc', g => g.disc(1, 16, [1, 1, 1])),
     orb: () => single('orb', g => g.ball(1, 1, 1, [1, 1, 1], 6, 4)),

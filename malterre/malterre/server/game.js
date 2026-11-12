@@ -26,6 +26,7 @@ class Game {
     this.ents = new Map();
     this.nextId = 1;
     this.online = new Map();      // clé joueur → session
+    this.dungeons = new Map();
     this.events = [];
     this.fails = new Map();       // anti-force brute sur les codes
     this.rosterDirty = false;
@@ -223,10 +224,14 @@ class Game {
     this.say('🚩 ' + sess.rec.name + ' conquiert un village' + (prev ? ' de ' + prev.name : '') + ' !');
   }
   // Deux unités de joueurs sont ennemies seulement dans une zone de raid, et si l'une d'elles défend cette forteresse.
+  // Alliance : active quand les deux seigneurs se sont choisis l'un l'autre.
+  allied(ka, kb) { const a = this.players[ka], b = this.players[kb]; return !!a && !!b && (a.allies || []).includes(kb) && (b.allies || []).includes(ka); }
   enemyU(a, b) {
     const ka = this.ownerKey(a), kb = this.ownerKey(b);
-    if (!ka || !kb || ka === kb || !a.zone || a.zone !== b.zone) return false;
-    return a.zone.owner === ka || a.zone.owner === kb;
+    if (!ka || !kb || ka === kb || !a.zone || a.zone !== b.zone || this.allied(ka, kb)) return false;
+    // Le défenseur et ses alliés font front commun contre les intrus.
+    const o = a.zone.owner, da = o === ka || this.allied(o, ka), db = o === kb || this.allied(o, kb);
+    return da !== db;
   }
   foe(a, o) { return o !== a && !o.dead && (o.k === 2 || this.enemyU(a, o)); }
   fortBroadcast(f) { const info = this.fortInfo(f); for (const s of this.online.values()) this.send(s, { t: 'fort', f: info }); }
@@ -281,7 +286,7 @@ class Game {
     if (tgt.k === 2) {
       const o = this.ownerKey(src);
       if (o) tgt.dmgBy[o] = (tgt.dmgBy[o] || 0) + amt;
-      if (src && this.alive(src) && (!this.alive(tgt.tgt) || (src.k === 0 && Math.random() < 0.35))) { tgt.tgt = src; tgt.ret = false; }
+      if (src && this.alive(src) && (!this.alive(tgt.tgt) || Math.random() < (src.k === 0 ? 0.2 : src.def && src.def.taunt ? 0.75 : 0.3))) { tgt.tgt = src; tgt.ret = false; }
       tgt.active = true;
     } else if (tgt.k === 1 && src) tgt.threat = src;
     if (tgt.hp <= 0) this.kill(tgt, src);
@@ -308,7 +313,9 @@ class Game {
         if (Math.random() < chance) this.giveRelic(sess);
         sess.dirty = true; names.push(sess.rec.name);
       }
-      if (def.boss && names.length) this.say('⚔️ ' + names.join(', ') + (names.length > 1 ? ' ont' : ' a') + ' vaincu le ' + def.name + ' !');
+      if (def.boss && !tgt.sp.dungeon) for (const s2 of this.online.values()) this.send(s2, { t: 'boss', s: Math.round(cfg.respawnBoss) });
+      if (tgt.sp.dungeon) { const g = tgt.sp.dungeon; g.mobs = g.mobs.filter(m => m !== tgt); }
+      if (def.boss && names.length && !tgt.sp.dungeon) this.say('⚔️ ' + names.join(', ') + (names.length > 1 ? ' ont' : ' a') + ' vaincu le ' + def.name + ' !');
     } else if (tgt.k === 1) {
       this.ev(tgt.x, tgt.z, ['d', tgt.id, 1, tgt.t]);
       this.ents.delete(tgt.id);
@@ -363,6 +370,7 @@ class Game {
         if (!this.players[v.owner]) { this.freeVillage(v); continue; }
         if ((!v.gar || v.gar.length < D.VILLAGE.guards) && t >= v.regarAt && ![...this.online.values()].some(s => s.key !== v.owner && dist(s.ent, v) < 45)) this.spawnVillageGuards(v);
       }
+      for (const g of [...this.dungeons.values()]) this.dgTick(g, t);
       this.incomeT = (this.incomeT || 0) + 1;
       if (this.incomeT >= 60) { this.incomeT = 0; for (const sess of this.online.values()) { const inc = this.villageIncome(sess.key); for (const r in inc) this.addRes(sess.rec, r, Math.round(inc[r])); if (Object.keys(inc).length) sess.dirty = true; } }
       for (const n of this.nodes) { const v = this.visOf(n); if (v !== n.vis) { n.vis = v; this.nodeChanges.push([n.id, v]); } }
@@ -439,6 +447,7 @@ class Game {
     if (e.dead) {
       if (t >= e.respawnAt) {
         const p = this.fortPos(f, D.FORT.spawn[0], D.FORT.spawn[1]);
+        this.dgExit(sess, false);
         e.dead = false; e.hp = e.mh; e.x = p.x; e.z = p.z; e.lastHit = 0;
         this.send(sess, { t: 'tp', x: p.x, z: p.z, alive: 1 });
       }
@@ -463,20 +472,21 @@ class Game {
     if (m.temp && t >= m.expire) { this.ev(m.x, m.z, ['d', m.id, 1, m.t]); this.ents.delete(m.id); sess.minions = sess.minions.filter(x => x !== m); return; }
     const st = sess.st, buff = t < hero.buffUntil, speed = m.def.speed * st.mSpeed * (buff ? 1.3 : 1);
     if (t >= m.think) {
-      m.think = t + 400 + rnd(0, 100);
+      m.think = t + (role === 'escort' ? 180 : 400) + rnd(0, 80);
       let best = null, bd = 1e9;
-      if (role === 'escort') {
+      if (role === 'escort' && sess.order && this.alive(sess.order.tgt) && t < sess.order.until && !hero.dead) best = sess.order.tgt;
+      else if (role === 'escort') {
         if (!hero.dead) for (const o of this.ents.values()) {
           if (o.dead) continue;
           const dh = dist(o, hero);
-          if (o.k === 2 ? (dh < 14 && (o.tgt || dh < 9 || o === sess.tgt)) : (dh < 16 && this.enemyU(m, o))) { const d = dist(o, m); if (d < bd) { bd = d; best = o; } }
+          if (o.k === 2 ? (dh < 16 && (o.tgt || dh < 12 || o === sess.tgt)) : (dh < 16 && this.enemyU(m, o))) { const d = dist(o, m); if (d < bd) { bd = d; best = o; } }
         }
       } else if (role === 'guard') {
         for (const o of this.ents.values()) if (!o.dead && (o.k === 2 ? dist(o, f) < 30 : (dist(o, f) < 40 && this.enemyU(m, o)))) { const d = dist(o, m); if (d < bd) { bd = d; best = o; } }
       } else if (this.alive(m.threat) && dist(m, m.threat) < 8 && (m.threat.k === 2 || this.enemyU(m, m.threat))) best = m.threat;
       m.tgt = best;
     }
-    if (this.fight(m, speed, m.def.dmg * st.mDmg * (buff ? 1.5 : 1), dt, t)) return;
+    if (this.fight(m, speed * (role === 'escort' ? 1.25 : 1), m.def.dmg * st.mDmg * (buff ? 1.5 : 1), dt, t)) return;
     const goto = (x, z, tol, sp) => { if (Math.hypot(x - m.x, z - m.z) > tol) { this.move(m, x, z, sp || speed, dt); m.a = 1; return false; } m.a = 0; return true; };
     if (role === 'escort') {
       if (hero.dead) { const p = this.fortPos(f, 0, 8); goto(p.x, p.z, 4); return; }
@@ -523,7 +533,7 @@ class Game {
     const rec = sess.rec, t = now();
     return { t: 'me', name: rec.name, cls: rec.cls, lvl: rec.lvl, xp: rec.xp, need: D.xpNeed(rec.lvl), res: rec.res, cap: sess.st.cap, b: rec.b,
       mcap: sess.st.mcap, slot: rec.slot, dmg: Math.round(this.heroDmg(sess)), kills: rec.kills || 0, speed: sess.st.speed,
-      craft: rec.craft || {}, relics: rec.relics || [], eq: rec.eq || {}, vill: this.villagesOf(sess.key).length, vinc: this.villageIncome(sess.key),
+      craft: rec.craft || {}, relics: rec.relics || [], eq: rec.eq || {}, vill: this.villagesOf(sess.key).length, vinc: this.villageIncome(sess.key), allies: this.allyList(sess.key), dgBest: rec.dgBest || 0,
       minions: rec.minions.map(m => [m.t, m.role, m.deadUntil ? Math.max(1, Math.ceil((m.deadUntil - t) / 1000)) : 0]) };
   }
 
@@ -574,6 +584,12 @@ class Game {
       case 'build': this.onBuild(sess, String(msg.b)); break;
       case 'summon': this.onSummon(sess, String(msg.m)); break;
       case 'role': this.onRole(sess, String(msg.r), msg.d > 0 ? 1 : -1); break;
+      case 'order': this.onOrder(sess); break;
+      case 'role2': this.onRole2(sess, String(msg.m), String(msg.r), msg.d > 0 ? 1 : -1); break;
+      case 'ally': this.onAlly(sess, String(msg.n)); break;
+      case 'dgenter': this.dgEnter(sess); break;
+      case 'dgnext': this.dgNext(sess); break;
+      case 'dgexit': this.dgExit(sess, true); break;
       case 'setrole': this.onSetRole(sess, msg.i | 0, String(msg.r)); break;
       case 'dismiss': this.onDismiss(sess, String(msg.m)); break;
       case 'recall': this.onRecall(sess); break;
@@ -608,7 +624,7 @@ class Game {
       const salt = crypto.randomBytes(8).toString('hex');
       rec = this.players[key] = { name, pin: this.hashPin(pin, salt), salt, tok: null, cls, slot: f.s, lvl: 1, xp: 0,
         res: Object.assign({}, D.START.res), b: { throne: 1, storage: 0, barracks: 0, altar: 0, workshop: 0 },
-        minions: D.START.roles.map(r => ({ t: D.CLASSES[cls].minions[0], role: r })), lastSeen: t, created: t, kills: 0, shield: t + this.cfg.newShieldH * 3600e3, reports: [], craft: {}, relics: [], eq: {} };
+        minions: D.START.roles.map(r => ({ t: D.CLASSES[cls].minions[0], role: r })), lastSeen: t, created: t, kills: 0, shield: t + this.cfg.newShieldH * 3600e3, reports: [], allies: [], craft: {}, relics: [], eq: {} };
       f.owner = key;
       this.fortBroadcast(f);
       this.say('🏰 ' + name + ' fonde un royaume en Malterre.');
@@ -647,7 +663,7 @@ class Game {
     }
     rec.lastSeen = t;
     const p = this.fortPos(f, D.FORT.spawn[0], D.FORT.spawn[1]);
-    rec.craft = rec.craft || {}; rec.relics = rec.relics || []; rec.eq = rec.eq || {};
+    rec.craft = rec.craft || {}; rec.relics = rec.relics || []; rec.eq = rec.eq || {}; rec.allies = rec.allies || [];
     const st = this.stats(rec), mh = this.heroMh(rec, st);
     const ent = { id: this.nextId++, k: 0, t: rec.cls, key, x: p.x, z: p.z, r: f.rot, hp: mh, mh, a: 0, dead: false, rad: 0.6,
       nextAtk: 0, cds: [0, 0, 0], buffUntil: 0, lastHit: 0, atkAnim: 0, recallAt: 0 };
@@ -659,13 +675,14 @@ class Game {
       if (!m.deadUntil || m.deadUntil <= t) { delete m.deadUntil; this.spawnMinion(sess, m); }
     }
     this.send(sess, { t: 'welcome', id: ent.id, name: rec.name, cls: rec.cls, tok, x: p.x, z: p.z, r: f.rot, cfg, offline, reports,
-      nodes: this.nodes.map(n => [n.id, n.type, n.x, n.z, n.rich, n.vis]), forts: this.forts.map(x => this.fortInfo(x)), villages: this.villages.map(v => this.villInfo(v)) });
+      nodes: this.nodes.map(n => [n.id, n.type, n.x, n.z, n.rich, n.vis]), forts: this.forts.map(x => this.fortInfo(x)), villages: this.villages.map(v => this.villInfo(v)), boss: this.bossLeft(), lords: Object.keys(this.players).map(k => ({ n: this.players[k].name, c: this.players[k].cls, l: this.players[k].lvl })) });
     this.rosterDirty = true;
     this.say('👋 ' + rec.name + ' entre en Malterre.');
   }
 
   leave(sess) {
     if (this.online.get(sess.key) !== sess) return;
+    this.dgExit(sess, false);
     sess.rec.lastSeen = now();
     this.ents.delete(sess.ent.id);
     for (const m of sess.minions) this.ents.delete(m.id);
@@ -685,7 +702,8 @@ class Game {
     let dx = x - e.x, dz = z - e.z, d = Math.hypot(dx, dz), fix = false;
     if (d > max) { x = e.x + dx / d * max; z = e.z + dz / d * max; fix = true; }
     const rr = Math.hypot(x, z);
-    if (rr > RAD - 3) { x *= (RAD - 3) / rr; z *= (RAD - 3) / rr; fix = true; }
+    if (sess.dg) { const g = sess.dg, dd = Math.hypot(x - g.cx, z - g.cz), lim = D.DUNGEON.radius - 1; if (dd > lim) { x = g.cx + (x - g.cx) / dd * lim; z = g.cz + (z - g.cz) / dd * lim; fix = true; } }
+    else if (rr > RAD - 3) { x *= (RAD - 3) / rr; z *= (RAD - 3) / rr; fix = true; }
     e.x = x; e.z = z; e.r = r;
     if (e.a !== 2) e.a = msg.a ? 1 : 0;
     if (fix && t - sess.lastTp > 400) { sess.lastTp = t; this.send(sess, { t: 'tp', x, z }); }
@@ -819,6 +837,105 @@ class Game {
     sess.dirty = true;
   }
 
+  bossLeft() { const sp = this.spawns.find(x => x.type === 'guardian'); return sp && !sp.ent ? Math.max(1, Math.round((sp.deadUntil - now()) / 1000)) : 0; }
+  // Ordre d'attaque : toute l'escorte charge la cible visée par le héros.
+  onOrder(sess) {
+    const e = sess.ent; if (e.dead) return;
+    const tg = this.pickTarget(e, 30, 0);
+    if (!tg) { sess.order = null; return this.send(sess, { t: 'err', m: 'Aucune cible en vue : l\'escorte revient vers toi.' }); }
+    sess.order = { tgt: tg, until: now() + 20000 }; sess.tgt = tg;
+    for (const m of sess.minions) if (m.temp || m.rec.role === 'escort') { m.tgt = tg; m.think = 0; }
+    this.ev(tg.x, tg.z, ['fx', 'order', Math.round(tg.x * 10) / 10, Math.round(tg.z * 10) / 10, tg.rad + 1.5, e.id], sess);
+  }
+  // Répartition par type : d = +1 envoie un serviteur de ce type (pris dans la garde) à la tâche, -1 le renvoie en garde.
+  onRole2(sess, mt, role, d) {
+    if (!D.ROLES[role] || role === 'guard') return;
+    const m = sess.rec.minions.find(x => x.t === mt && x.role === (d > 0 ? 'guard' : role));
+    if (!m) return;
+    m.role = d > 0 ? role : 'guard';
+    const e = sess.minions.find(x => x.rec === m);
+    if (e) { e.st = 'idle'; e.tgt = null; e.carry = 0; e.timer = 0; }
+    sess.dirty = true;
+  }
+  allyList(key) {
+    const rec = this.players[key], out = [];
+    for (const k in this.players) { if (k === key) continue; const mine = (rec.allies || []).includes(k), theirs = (this.players[k].allies || []).includes(key); if (mine || theirs) out.push([this.players[k].name, mine && theirs ? 'on' : mine ? 'sent' : 'recv']); }
+    return out;
+  }
+  onAlly(sess, name) {
+    const key = name.trim().toLowerCase(), other = this.players[key], rec = sess.rec;
+    if (!other || key === sess.key) return;
+    rec.allies = rec.allies || [];
+    const had = rec.allies.includes(key);
+    if (had) rec.allies = rec.allies.filter(k => k !== key); else rec.allies.push(key);
+    const mutual = this.allied(sess.key, key), os = this.online.get(key);
+    sess.dirty = true;
+    if (os) { os.dirty = true; this.send(os, { t: 'msg', m: had ? '💔 ' + rec.name + ' rompt votre alliance.' : mutual ? '🤝 Alliance conclue avec ' + rec.name + ' !' : '🤝 ' + rec.name + ' te propose une alliance (onglet Héros).' }); }
+    this.send(sess, { t: 'msg', m: had ? 'Alliance rompue avec ' + other.name + '.' : mutual ? '🤝 Alliance conclue avec ' + other.name + ' !' : 'Proposition envoyée à ' + other.name + '.' });
+  }
+
+  /* ---------- Donjon ---------- */
+  portalPos(f) { return this.fortPos(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); }
+  dgEnter(sess) {
+    const e = sess.ent, err = m => this.send(sess, { t: 'err', m });
+    if (e.dead || sess.dg) return;
+    if (!this.forts.some(f => { const p = this.portalPos(f); return Math.hypot(p.x - e.x, p.z - e.z) < 9; })) return err('Approche-toi d\'un portail.');
+    // Un allié déjà dans le donjon ? On le rejoint à son étage.
+    let g = null;
+    for (const d of this.dungeons.values()) if ([...d.members].some(s => this.allied(s.key, sess.key))) { g = d; break; }
+    if (!g) {
+      let i = 0; while ([...this.dungeons.values()].some(d => d.slot === i)) i++;
+      g = { id: this.nextId++, slot: i, cx: 3000 + i * 300, cz: 0, floor: 0, mobs: [], members: new Set(), state: 'clear', back: {} };
+      this.dungeons.set(g.id, g);
+    }
+    g.members.add(sess); sess.dg = g; g.back[sess.key] = { x: e.x, z: e.z };
+    const a = Math.random() * TAU; e.x = g.cx + Math.sin(a) * 4; e.z = g.cz - 22 + Math.cos(a) * 2;
+    for (const m of sess.minions) if (m.temp || m.rec.role === 'escort') { m.x = e.x + rnd(-3, 3); m.z = e.z + rnd(-3, 3); m.tgt = null; }
+    this.send(sess, { t: 'tp', x: e.x, z: e.z, dg: { cx: g.cx, cz: g.cz, floor: Math.max(1, g.floor), state: g.floor ? g.state : 'fight' } });
+    if (!g.floor) this.dgSpawn(g);
+  }
+  dgSpawn(g) {
+    g.floor++; g.state = 'fight';
+    const f = g.floor, k = f - 1, boss = f % 5 === 0, P = D.DUNGEON.pools[Math.min(2, Math.floor(k / 4))], list = [];
+    const n = Math.min(14, 3 + f) + Math.max(0, g.members.size - 1) * 2;
+    if (boss) list.push(D.DUNGEON.bosses[(f / 5 - 1) % D.DUNGEON.bosses.length]);
+    for (let i = 0; i < (boss ? Math.floor(n / 2) : n); i++) list.push(P[Math.floor(Math.random() * P.length)]);
+    list.forEach((type, i) => {
+      const base = D.MOBS[type], top = boss && i === 0, a = i / list.length * TAU, r = top ? 0 : 10 + Math.random() * 14;
+      const def = Object.assign({}, base, { hp: Math.round(base.hp * (1 + 0.18 * k) * (top && base.boss ? 0.5 : 1)), dmg: base.dmg * (1 + 0.1 * k) * (top && base.boss ? 0.7 : 1), xp: Math.round(base.xp * (1 + 0.15 * k)), relic: 0, boss: false, elite: top || base.elite, aggro: 60 });
+      const sp = { id: -1, type, x: g.cx + Math.sin(a) * r, z: g.cz + 6 + Math.cos(a) * r, roam: true, deadUntil: 0, ent: null, dungeon: g };
+      const m = this.spawnMob(sp); m.def = def; m.hp = m.mh = def.hp; g.mobs.push(m);
+    });
+    for (const s of g.members) this.send(s, { t: 'dg', floor: g.floor, state: 'fight', boss });
+  }
+  dgTick(g, t) {
+    if (!g.members.size) { for (const m of g.mobs) { this.ents.delete(m.id); } this.dungeons.delete(g.id); return; }
+    if (g.state !== 'fight' || g.mobs.length) return;
+    g.state = 'clear';
+    const f = g.floor, boss = f % 5 === 0;
+    for (const s of g.members) {
+      const rec = s.rec, reward = { gold: 20 * f, spec: 20 * f, wood: 12 * f, stone: 12 * f };
+      for (const r in reward) this.addRes(rec, r, reward[r]);
+      this.addXp(s, 40 * f);
+      const best = f > (rec.dgBest || 0); if (best) rec.dgBest = f;
+      if (Math.random() < (boss ? 0.35 : Math.min(0.2, 0.02 * f)) * this.cfg.relicMult) this.giveRelic(s);
+      s.dirty = true;
+      this.send(s, { t: 'dg', floor: f, state: 'clear', reward, best });
+      if (best && boss) this.say('🌀 ' + rec.name + ' a franchi l\'étage ' + f + ' du donjon !');
+    }
+  }
+  dgNext(sess) { const g = sess.dg; if (g && g.state === 'clear' && !sess.ent.dead) this.dgSpawn(g); }
+  dgExit(sess, tp) {
+    const g = sess.dg; if (!g) return;
+    g.members.delete(sess); sess.dg = null; sess.order = null;
+    if (tp) {
+      const b = g.back[sess.key] || this.fortPos(this.forts[sess.rec.slot], D.FORT.spawn[0], D.FORT.spawn[1]), e = sess.ent;
+      e.x = b.x; e.z = b.z + 3;
+      for (const m of sess.minions) if (m.temp || m.rec.role === 'escort') { m.x = e.x + rnd(-3, 3); m.z = e.z + rnd(-3, 3); m.tgt = null; }
+      this.send(sess, { t: 'tp', x: e.x, z: e.z, dg: null });
+    } else this.send(sess, { t: 'dg', state: 'out' });
+  }
+
   // Affecte un serviteur précis à une tâche (pour envoyer les spécialistes au bon endroit).
   onSetRole(sess, i, role) {
     const m = sess.rec.minions[i];
@@ -845,7 +962,7 @@ class Game {
     if (e.dead) return;
     if (t - (e.lastHit || 0) < 5000) return this.send(sess, { t: 'err', m: 'Impossible en plein combat.' });
     if (t < e.recallAt) return this.send(sess, { t: 'err', m: 'Retour disponible dans ' + Math.ceil((e.recallAt - t) / 1000) + ' s.' });
-    e.recallAt = t + 30000;
+    e.recallAt = t + 30000; this.dgExit(sess, false);
     const p = this.fortPos(this.forts[sess.rec.slot], D.FORT.spawn[0], D.FORT.spawn[1]);
     e.x = p.x; e.z = p.z;
     this.send(sess, { t: 'tp', x: p.x, z: p.z, recall: 1 });
@@ -889,6 +1006,7 @@ class Game {
     const v = this.villages.find(x => dist(x, e) < 9);
     if (v) {
       if (v.owner === sess.key) return err('Ce village est déjà à toi.');
+      if (v.owner && this.allied(v.owner, sess.key)) return err('Ce village appartient à un allié.');
       if (v.shieldUntil > now()) return err('Ce village vient d\'être conquis, il est encore protégé.');
       if (this.villagesOf(sess.key).length >= this.cfg.villageMax) return err('Tu tiens déjà ' + this.cfg.villageMax + ' villages, le maximum.');
       if (this.villageGuarded(v)) return err('Élimine d\'abord tous les gardes du village.');
@@ -899,6 +1017,7 @@ class Game {
       return;
     }
     if (!f || f.owner === sess.key) return err('Aucune forteresse à piller ici.');
+    if (this.allied(f.owner, sess.key)) return err('On ne pille pas un allié.');
     const sp = this.fortPos(f, D.PLOTS.storage[0], D.PLOTS.storage[1]);
     if (Math.hypot(sp.x - e.x, sp.z - e.z) > 8) return err('Approche-toi de la réserve.');
     sess.loot = { f, until: now() + this.cfg.lootTime * 1000 };
