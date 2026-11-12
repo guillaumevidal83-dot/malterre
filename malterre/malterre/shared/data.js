@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.6.0',
+    VERSION: '0.7.0',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
@@ -154,7 +154,13 @@
       captain: { name: 'Capitaine du village', model: 'knight', scale: 0.95, tier: 2, hp: 520, dmg: 24, speed: 6.5, range: 2.6, aggro: 13, cd: 1.4, xp: 110, gold: [30, 50], rad: 0.9, elite: true, relic: 0.05 },
       knight: { name: 'Chevalier déchu', tier: 3, hp: 380, dmg: 28, speed: 6.5, range: 2.6, aggro: 14, cd: 1.4, xp: 75, gold: [18, 32], spec: [5, 10], rad: 0.9, relic: 0.04 },
       troll: { name: 'Troll', tier: 3, hp: 750, dmg: 38, speed: 5.5, range: 3.2, aggro: 14, cd: 1.9, xp: 170, gold: [20, 40], spec: [12, 22], stone: [20, 35], rad: 1.6, elite: true, relic: 0.25 },
-      guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], wood: [100, 140], stone: [100, 140], rad: 3.4, boss: true, relic: 1 },
+      guardian: { name: 'Gardien de Malterre', tier: 4, hp: 6000, dmg: 70, speed: 5, range: 5, aggro: 22, cd: 2.2, xp: 900, gold: [150, 200], spec: [100, 140], wood: [100, 140], stone: [100, 140], rad: 3.4, boss: true, relic: 1, item: 'heart' },
+      ashknight: { name: 'Chevalier de cendre', model: 'knight', scale: 1.2, tier: 5, hp: 900, dmg: 48, speed: 6.8, range: 2.8, aggro: 15, cd: 1.3, xp: 220, gold: [40, 70], spec: [15, 25], rad: 1, relic: 0.03 },
+      lavagolem: { name: 'Golem de lave', model: 'golem', scale: 1.9, tier: 5, hp: 1500, dmg: 55, speed: 4.6, range: 3.2, aggro: 12, cd: 1.9, xp: 300, stone: [80, 130], gold: [10, 20], rad: 1.7, relic: 0.03 },
+      hellspider: { name: 'Veuve des cendres', model: 'spider', scale: 1.6, tier: 5, hp: 700, dmg: 42, speed: 8, range: 2.6, aggro: 14, cd: 1.1, xp: 190, spec: [40, 70], rad: 1.6, relic: 0.02 },
+      emberent: { name: 'Ent calciné', model: 'treant', scale: 2.1, tier: 5, hp: 1300, dmg: 50, speed: 4.8, range: 3.2, aggro: 12, cd: 1.8, xp: 280, wood: [80, 130], rad: 1.6, relic: 0.03 },
+      drake: { name: 'Drake', model: 'drake', scale: 1.3, tier: 5, hp: 1100, dmg: 60, speed: 8, range: 3, aggro: 16, cd: 1.4, xp: 320, gold: [50, 90], spec: [20, 35], rad: 1.5, relic: 0.05 },
+      dragon: { name: 'Dragon ancien', model: 'drake', scale: 3.6, tier: 6, hp: 16000, dmg: 110, speed: 5.5, range: 6, aggro: 26, cd: 2.2, xp: 3000, gold: [400, 600], spec: [300, 400], wood: [300, 400], stone: [300, 400], rad: 4, boss: true, relic: 1, item: 'scale' },
     },
     LOOT_KEYS: ['gold', 'spec', 'wood', 'stone'],
     NODES: {
@@ -167,7 +173,21 @@
       barracks: { max: 5, cost: { wood: 50, stone: 50, spec: 30 }, desc: '+3 serviteurs par niveau, serviteurs plus forts.' },
       altar: { max: 5, cost: { stone: 60, gold: 30, spec: 40 }, desc: '+10 % de vie et de dégâts pour ton héros.' },
       workshop: { max: 5, cost: { wood: 70, stone: 40, gold: 15 }, desc: 'Récolte plus rapide et plus grosse.' },
+      tower: { name: 'Tour de guet', icon: '🗼', max: 5, cost: { wood: 120, stone: 200, gold: 60 }, items: [{}, { shard: 1 }, { shard: 2 }, { shard: 3 }, { shard: 4, scale: 1 }], desc: 'Tire sur les monstres et les pillards près de ta forteresse.' },
+      walls: { name: 'Murailles', icon: '🧱', max: 5, cost: { stone: 250, wood: 100 }, items: [{}, {}, { shard: 1 }, { shard: 2 }, { shard: 3, scale: 1 }], desc: 'Garnison +15 % par niveau, et les pillards volent 8 % de moins par niveau.' },
+      moat: { name: 'Douves', icon: '🌊', max: 3, cost: { stone: 150, gold: 120 }, items: [{}, { shard: 1 }, { shard: 2 }], desc: 'Un pillage prend 3 secondes de plus par niveau.' },
+      stable: { name: 'Écurie', icon: '🐎', max: 3, cost: { wood: 200, stone: 120, gold: 100 }, items: [{ shard: 1 }, { shard: 2 }, { shard: 3, scale: 1 }], desc: 'Donne une monture au héros : +20 % de vitesse par niveau hors combat.' },
+      roost: { name: 'Aire du dragon', icon: '🐉', max: 1, cost: { wood: 800, stone: 800, gold: 600, spec: 400 }, items: [{ heart: 1 }], desc: 'Un dragon t\'emmène aux Terres brûlées, une contrée lointaine aux ennemis redoutables.' },
     },
+    // Trophées : ne s'obtiennent que sur les boss, ne se pillent pas et ne comptent pas dans le stock.
+    ITEMS: {
+      heart: { name: 'Cœur du Gardien', icon: '💗', from: 'Gardien de Malterre (centre de la carte)' },
+      shard: { name: 'Éclat d\'abîme', icon: '💠', from: 'boss du donjon (tous les 5 étages)' },
+      scale: { name: 'Écaille de dragon', icon: '🐲', from: 'Dragon ancien (Terres brûlées)' },
+    },
+    MOUNTS: { lich: 'bonehorse', goblin: 'wolf', demon: 'hound', druid: 'bear', dwarf: 'boar' },
+    // Seconde contrée, accessible à dos de dragon.
+    LAND2: { x: 0, z: 2600, r: 170 },
     // Fabrications de l'atelier : améliorations permanentes par paliers (palier maximum = niveau de l'atelier).
     CRAFTS: {
       weapon: { name: 'Arme du seigneur', icon: '🗡️', who: 'hero', desc: '+12 % de dégâts du héros par palier', cost: { stone: 40, gold: 25, spec: 20 } },
@@ -204,12 +224,13 @@
     // Revenu d'un village par minute (doublé pour les villages riches de la zone intermédiaire).
     VILLAGE: { income: { gold: 6, wood: 5, stone: 5, spec: 4 }, zone: 32, guards: 5 },
     // Emplacements des bâtiments dans la forteresse (repère local, +z vers le centre du monde).
-    PLOTS: { throne: [0, -15], storage: [-14, -3], barracks: [14, -3], altar: [-11, 9], workshop: [11, 9] },
+    PLOTS: { throne: [0, -15], storage: [-14, -3], barracks: [14, -3], altar: [-11, 9], workshop: [11, 9], stable: [-17, -11], tower: [17, -11], roost: [-17, 37] },
     FORT: { wall: 24, spawn: [0, 8], zone: 36 },
     // Formules communes.
     cost(b, lvl, cls) {
       const base = DATA.BUILDINGS[b].cost, L = b === 'throne' ? lvl - 1 : lvl, k = ((DATA.CLASSES[cls] || {}).passive || {}).buildCost || 1, out = {};
       for (const r in base) out[r] = Math.max(5, Math.round(base[r] * Math.pow(1.9, L) * k / 5) * 5);
+      const it = (DATA.BUILDINGS[b].items || [])[lvl] || {}; for (const r in it) out[r] = it[r];
       return out;
     },
     minionCost(mt, cls) {
@@ -219,7 +240,7 @@
     },
     craftCost(id, tier, cls) { const base = DATA.CRAFTS[id].cost, k = ((DATA.CLASSES[cls] || {}).passive || {}).craftCost || 1, out = {}; for (const r in base) out[r] = Math.max(5, Math.round(base[r] * Math.pow(1.8, tier) * k / 5) * 5); return out; },
     xpNeed(lvl) { return Math.round(40 * Math.pow(lvl, 1.6)); },
-    cap(b) { return 250 + 300 * (b.storage || 0); },
+    cap(b) { return 500 + 700 * (b.storage || 0); },
     minionCap(b) { return 4 + 3 * (b.barracks || 0); },
     heroHp(cls, lvl, b) { return Math.round((DATA.CLASSES[cls].hp + 18 * (lvl - 1)) * (1 + 0.1 * (b.altar || 0))); },
     heroDmg(cls, lvl, b) { return (DATA.CLASSES[cls].dmg + 1.6 * (lvl - 1)) * (1 + 0.1 * (b.altar || 0)); },

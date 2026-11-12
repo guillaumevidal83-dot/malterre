@@ -22,14 +22,18 @@
     lootEnd: 0, lootDur: 1, dg: null, bossEnd: 0, btnMode: '', quality: store.get('malterre_q') || 'med', tab: 'fort', sheet: false, deathAt: 0, lastSend: 0, lastSent: '', pending: null,
   };
   const ICON = {}; for (const c in D.CLASSES) ICON[c] = D.CLASSES[c].icon;
-  const BICON = { throne: '👑', storage: '📦', barracks: '⚰️', altar: '🔮', workshop: '⚒️' };
+  const BICON = { throne: '👑', storage: '📦', barracks: '⚰️', altar: '🔮', workshop: '⚒️' }; for (const b in D.BUILDINGS) if (D.BUILDINGS[b].icon) BICON[b] = D.BUILDINGS[b].icon;
+  const L2 = D.LAND2, inL2 = () => Math.hypot(S.x - L2.x, S.z - L2.z) < L2.r + 30;
+  const have = r => (r in D.ITEMS ? (S.me.items || {})[r] : S.me.res[r]) || 0;
+  const anyIcon = r => r in D.ITEMS ? D.ITEMS[r].icon : resIcon(r);
   const MICON = { skeleton: '💀', zombie: '🧟', goblin: '👺', brute: '👹' };
-  const ZONES = ['', 'Terres calmes', 'Bois sombres', 'Terres maudites'];
-  const ZSUB = ['', 'Les bêtes y sont faibles', 'Araignées et orcs rôdent', 'Seuls les plus forts en reviennent'];
+  const ZONES = ['', 'Terres calmes', 'Bois sombres', 'Terres maudites', 'Terres brûlées'];
+  const ZSUB = ['', 'Les bêtes y sont faibles', 'Araignées et orcs rôdent', 'Seuls les plus forts en reviennent', 'Le domaine du Dragon ancien'];
   const SKY = [null,
     { fog: [0.62, 0.75, 0.84], amb: [0.56, 0.57, 0.6], sun: [0.68, 0.64, 0.56], near: 70, far: 122 },
     { fog: [0.3, 0.4, 0.38], amb: [0.44, 0.48, 0.47], sun: [0.42, 0.44, 0.38], near: 55, far: 108 },
-    { fog: [0.2, 0.14, 0.2], amb: [0.42, 0.36, 0.44], sun: [0.4, 0.27, 0.27], near: 42, far: 96 }];
+    { fog: [0.2, 0.14, 0.2], amb: [0.42, 0.36, 0.44], sun: [0.4, 0.27, 0.27], near: 42, far: 96 },
+    { fog: [0.32, 0.1, 0.06], amb: [0.5, 0.36, 0.32], sun: [0.6, 0.3, 0.2], near: 48, far: 104 }];
   const sky = { fog: [0.62, 0.75, 0.84], amb: [0.56, 0.57, 0.6], sun: [0.68, 0.64, 0.56], near: 70, far: 122 };
   const slotColor = s => hex(D.COLORS[s % D.COLORS.length]);
 
@@ -63,7 +67,7 @@
         else if (m.state === 'fight') { if (S.dg) { S.dg.floor = m.floor; S.dg.state = 'fight'; } $('modal').hidden = true; S.zoneKey = ''; toast((m.boss ? '☠️ Boss — ' : '🌀 ') + 'Étage ' + m.floor, m.boss ? 'err' : 'good'); Sound.play(m.boss ? 'alert' : 'summon'); }
         else if (m.state === 'clear') {
           if (S.dg) S.dg.state = 'clear';
-          modal('<h2>🌀 Étage ' + m.floor + ' vaincu !</h2>' + (m.best ? '<p style="color:var(--gold)">Nouveau record personnel</p>' : '') + Object.keys(m.reward).map(r => '<div class="gain">+' + m.reward[r] + ' ' + resIcon(r) + '</div>').join('') +
+          modal('<h2>🌀 Étage ' + m.floor + ' vaincu !</h2>' + (m.best ? '<p style="color:var(--gold)">Nouveau record personnel</p>' : '') + Object.keys(m.reward).map(r => '<div class="gain">+' + m.reward[r] + ' ' + anyIcon(r) + (r in D.ITEMS ? ' ' + D.ITEMS[r].name : '') + '</div>').join('') +
             '<p>L\'étage suivant sera plus dur. Tu gardes tes gains même si tu tombes.</p><button class="btn gold wide" id="dgNext">Étage ' + (m.floor + 1) + ' →</button><button class="btn wide" id="dgExit">Sortir du donjon</button>');
           $('dgNext').onclick = () => { send({ t: 'dgnext' }); $('modal').hidden = true; Sound.play('click'); };
           $('dgExit').onclick = () => { send({ t: 'dgexit' }); $('modal').hidden = true; Sound.play('click'); };
@@ -86,6 +90,7 @@
         S.x = m.x; S.z = m.z;
         if ('dg' in m) { S.dg = m.dg; S.zoneKey = ''; Sound.play('recall'); ring(m.x, m.z, 0.5, 6, 0.8, [1.4, 0.5, 2.4]); if (!m.dg) $('modal').hidden = true; }
         if (m.alive) S.dg = null;
+        if (m.fly) { Sound.play('recall'); Sound.play('warcry'); ring(m.x, m.z, 0.5, 9, 1, [2.4, 0.8, 0.2]); S.zoneKey = ''; S.camYaw = inL2() ? 0 : S.camYaw; Sound.vibrate([60, 40, 120]); }
         if (m.alive) { S.dead = false; $('deathScreen').hidden = true; Sound.play('recall'); }
         if (m.recall) { Sound.play('recall'); ring(m.x, m.z, 0.5, 5, 0.6, [0.7, 0.5, 1.6]); S.recallAt = S.time + 30; }
         break;
@@ -156,7 +161,7 @@
         if (kind === 'b') { const sx = src.id === S.id ? S.x : src.x, sz = src.id === S.id ? S.z : src.z; S.projs.push({ x0: sx, y0: 2.2, z0: sz, x1: tx, y1: hgt * 0.6, z1: tz, t: 0, dur: 0.14, col: src.k === 0 && D.CLASSES[src.t] ? D.CLASSES[src.t].fx : [0.9, 0.85, 0.7], size: src.k === 0 ? 0.28 : 0.18 }); }
       }
       burst(tx, hgt * 0.55, tz, tg.k === 2 ? [0.75, 0.1, 0.1] : [0.85, 0.82, 0.75], 3, 2.5);
-      if (onMe) { sfx('hurt'); Sound.vibrate(dmg > S.mh * 0.15 ? [60, 30, 60] : 40); S.shake = Math.max(S.shake, 0.35); const v = $('vignette'); v.style.transition = 'none'; v.style.opacity = 0.8; requestAnimationFrame(() => { v.style.transition = 'opacity .6s'; v.style.opacity = S.hp / S.mh < 0.3 ? 0.45 : 0; }); }
+      if (onMe) { S.hurtT = S.time; sfx('hurt'); Sound.vibrate(dmg > S.mh * 0.15 ? [60, 30, 60] : 40); S.shake = Math.max(S.shake, 0.35); const v = $('vignette'); v.style.transition = 'none'; v.style.opacity = 0.8; requestAnimationFrame(() => { v.style.transition = 'opacity .6s'; v.style.opacity = S.hp / S.mh < 0.3 ? 0.45 : 0; }); }
       else sfx(kind === 'b' ? 'bolt' : crit ? 'crit' : 'hit', tx, tz);
     } else if (k === 'd') {
       const e = S.ents.get(ev[1]); if (!e) return;
@@ -171,6 +176,7 @@
       if (src) src.atkT = S.time; if (mine) S.atkT = S.time;
       const fc = src && src.k === 0 && D.CLASSES[src.t] ? D.CLASSES[src.t].fx : [0.9, 0.4, 2.2], fc2 = [fc[0] * 0.6 + 0.3, fc[1] * 0.6 + 0.3, fc[2] * 0.6 + 0.3];
       if (name === 'swing') sfx('swing', x, z);
+      else if (name === 'tower') { S.projs.push({ x0: x, y0: 9, z0: z, x1: ev[6], y1: 1.2, z1: ev[7], t: 0, dur: 0.25, col: [2.2, 1.6, 0.4], size: 0.3 }); sfx('bolt', ev[6], ev[7]); }
       else if (name === 'order') { ring(x, z, r + 3, r, 0.5, [2.4, 0.4, 0.3]); ring(x, z, r + 1.5, r, 0.8, [2.4, 0.4, 0.3]); Sound.play('alert'); Sound.vibrate([20, 30, 20]); }
       else if (name === 'chop') { burst(x, 1.2, z, ev[6] === 'wood' ? [0.5, 0.34, 0.2] : ev[6] === 'gold' ? [1.6, 1.2, 0.3] : [0.6, 0.6, 0.62], 6, 3); sfx('hit', x, z); if (mine) { S.r = Math.atan2(x - S.x, z - S.z); floatText(x, 2.6, z, '+' + ev[4] + ' ' + resIcon(ev[6]), '#ffe29a', 15, 1); Sound.vibrate(10); } }
       else if (name === 'bolt') { S.projs.push({ x0: x, y0: 2.4, z0: z, x1: ev[6], y1: 1.2, z1: ev[7], t: 0, dur: 0.22, col: fc, size: 0.6, boom: fc }); sfx('bigbolt', x, z); if (mine) Sound.vibrate([15, 20, 40]); }
@@ -261,7 +267,7 @@
     send({ t: 'sk', i });
   }
   for (let i = 0; i < 3; i++) $('sk' + i).addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); skill(i); });
-  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.btnMode === 'dg') send({ t: 'dgenter' }); else if (S.lootEnd <= S.time) send({ t: 'loot' }); });
+  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.btnMode === 'dg') send({ t: 'dgenter' }); else if (S.btnMode === 'fly') send({ t: 'fly' }); else if (S.lootEnd <= S.time) send({ t: 'loot' }); });
   $('btnOrder').addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); if (!S.dead) send({ t: 'order' }); });
   $('btnMenu').addEventListener('click', () => { Sound.init(); toggleSheet(); });
   $('sheetClose').addEventListener('click', () => toggleSheet());
@@ -300,10 +306,10 @@
     const cost = D.cost(b, lvl, me.cls);
     if (b !== 'throne' && lvl >= me.b.throne) return { ok: false, why: 'Trône niveau ' + (lvl + 1) + ' requis', cost };
     if (b === 'throne' && me.lvl < D.throneNeed(lvl)) return { ok: false, why: 'Héros niveau ' + D.throneNeed(lvl) + ' requis', cost };
-    for (const r in cost) if ((me.res[r] || 0) < cost[r]) return { ok: false, why: '', cost };
+    for (const r in cost) if (have(r) < cost[r]) return { ok: false, why: r in D.ITEMS ? 'Trophée requis : ' + D.ITEMS[r].name + ' — ' + D.ITEMS[r].from : '', cost };
     return { ok: true, cost };
   }
-  const costHtml = cost => '<div class="cost">' + Object.keys(cost).map(r => '<span class="' + ((S.me.res[r] || 0) < cost[r] ? 'no' : '') + '">' + resIcon(r) + ' ' + cost[r] + '</span>').join('') + '</div>';
+  const costHtml = cost => '<div class="cost">' + Object.keys(cost).map(r => '<span class="' + (have(r) < cost[r] ? 'no' : '') + '">' + anyIcon(r) + ' ' + cost[r] + '</span>').join('') + '</div>';
 
   function toggleSheet() { S.sheet = !S.sheet; $('sheet').hidden = !S.sheet; Sound.play('click'); if (S.sheet) renderSheet(); if (S.me) updHero(); }
   function renderSheet() {
@@ -315,10 +321,11 @@
       const mf = S.forts[me.slot], shLeft = mf && mf.shEnd > S.time ? mf.shEnd - S.time : 0;
       h += '<div class="card"><div class="big">' + (shLeft ? '🛡️' : '⚠️') + '</div><div class="mid"><h3>' + (shLeft ? 'Forteresse protégée' : 'Forteresse exposée') + '</h3><p>' + (shLeft ? 'Personne ne peut te piller pendant encore ' + fmtDur(shLeft) + '. Si tu pilles quelqu\'un, ta protection tombe.' : 'Un autre seigneur peut voler ' + Math.round(S.cfg.raidLoot * 100) + ' % de ton stock. Laisse des serviteurs en Garde pour la défendre.') + '</p></div></div>';
       { const inc = me.vinc || {}, ks = Object.keys(inc); h += '<div class="card"><div class="big">🚩</div><div class="mid"><h3>Villages<em>' + (me.vill || 0) + ' / ' + S.cfg.villageMax + '</em></h3><p>' + (ks.length ? 'Revenu par minute : ' + ks.map(r => '+' + Math.round(inc[r]) + ' ' + resIcon(r)).join('  ') : 'Élimine les gardes d\'un village, puis tiens le bouton Conquérir près du puits. Chaque village rapporte des ressources en continu, même hors ligne.') + '</p></div></div>'; }
+      { const it = me.items || {}; h += '<div class="card"><div class="big">🏆</div><div class="mid"><h3>Trophées de boss</h3><p>' + Object.keys(D.ITEMS).map(k => D.ITEMS[k].icon + ' ' + (it[k] || 0) + ' ' + D.ITEMS[k].name).join(' · ') + '</p><p>Ils servent aux améliorations les plus puissantes. On ne les trouve que sur : ' + Object.keys(D.ITEMS).map(k => D.ITEMS[k].from).join(' ; ') + '.</p></div></div>'; }
       h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + 'la ressource de ta classe (' + cls.spec.toLowerCase() + '). Ton héros récolte aussi : frappe un arbre, un rocher ou un filon avec le bouton d\'attaque.</div>';
       for (const b in D.BUILDINGS) {
         const lvl = me.b[b] || 0, c = canBuild(b), icon = b === 'barracks' && me.cls !== 'lich' ? '⛺' : b === 'altar' && me.cls !== 'lich' ? '🗿' : BICON[b];
-        h += '<div class="card"><div class="big">' + icon + '</div><div class="mid"><h3>' + esc(cls.bnames[b]) + '<em>' + (lvl ? 'niv. ' + lvl : 'à construire') + '</em></h3><p>' + D.BUILDINGS[b].desc + '</p>' +
+        h += '<div class="card"><div class="big">' + icon + '</div><div class="mid"><h3>' + esc(cls.bnames[b] || D.BUILDINGS[b].name) + '<em>' + (lvl ? 'niv. ' + lvl + ' / ' + D.BUILDINGS[b].max : 'à construire') + '</em></h3><p>' + D.BUILDINGS[b].desc + '</p>' +
           (c.max ? '' : costHtml(c.cost)) + (c.why && !c.max ? '<p style="color:var(--bad)">' + c.why + '</p>' : '') + '</div>' +
           (c.max ? '<span class="note">MAX</span>' : '<button class="btn' + (c.ok ? ' gold' : '') + '" data-act="build" data-arg="' + b + '"' + (c.ok ? '' : ' disabled') + '>' + (lvl ? 'Améliorer' : 'Construire') + '</button>') + '</div>';
       }
@@ -446,6 +453,7 @@
       if (Math.abs(d - 24) < 1.1 && Math.abs(Math.atan2(l[0], l[1])) > 0.2) { const nd = d < 24 ? 22.9 : 25.1, w = fortWorld(f, l[0] / d * nd, l[1] / d * nd); S.x = w[0]; S.z = w[1]; }
     }
     for (const v of S.villages) { if (Math.abs(v.x - S.x) > 16 || Math.abs(v.z - S.z) > 16) continue; pushOut(v.x, v.z, 2.3); const n = v.rich > 1 ? 7 : 5; for (let i = 0; i < n; i++) { const a = i / n * TAU + 0.3; pushOut(v.x + Math.sin(a) * 10.5, v.z + Math.cos(a) * 10.5, 3); } }
+    if (inL2()) { const dx = S.x - L2.x, dz = S.z - L2.z, d = Math.hypot(dx, dz), lim = L2.r - 4; if (d > lim) { S.x = L2.x + dx / d * lim; S.z = L2.z + dz / d * lim; } return; }
     const r = Math.hypot(S.x, S.z); if (r > WR - 4) { S.x *= (WR - 4) / r; S.z *= (WR - 4) / r; }
   }
 
@@ -459,7 +467,7 @@
     if (len > 0.15 && !S.dead) {
       const n = Math.hypot(mx, my); mx /= n; my /= n;
       const fx = Math.sin(S.camYaw), fz = Math.cos(S.camYaw), dx = fx * my - fz * mx, dz = fz * my + fx * mx;
-      const spd = cls.speed * (me.speed || 1); S.x += dx * spd * len * dt; S.z += dz * spd * len * dt;
+      S.mounted = (me.mount || 1) > 1 && S.time - S.atkT > 3 && S.time - (S.hurtT || -9) > 3; const spd = cls.speed * (me.speed || 1) * (S.mounted ? me.mount : 1); S.x += dx * spd * len * dt; S.z += dz * spd * len * dt;
       if (S.time - S.atkT > 0.25) S.r = Math.atan2(dx, dz);
       S.moving = true;
       collide();
@@ -490,14 +498,14 @@
     if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 2.2);
 
     // Zone et ambiance.
-    const r = Math.hypot(S.x, S.z), tier = S.dg ? 3 : r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
+    const r = Math.hypot(S.x, S.z), tier = S.dg ? 3 : inL2() ? 4 : r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
     let zk = 'z' + tier, title = ZONES[tier], sub = ZSUB[tier];
     for (const f of S.forts) if (Math.hypot(f.x - S.x, f.z - S.z) < 25) { const shd = f.shEnd > S.time; zk = 'f' + f.s + (f.o || '') + (shd ? 's' : ''); title = f.o ? (f.s === me.slot ? 'Ta forteresse' : 'Royaume de ' + f.o) : 'Terre sans maître'; sub = f.o ? D.CLASSES[f.c].name + ' niv. ' + f.l + (shd ? ' · 🛡️ protégé encore ' + fmtDur(f.shEnd - S.time) : f.s === me.slot ? ' · ⚠️ exposée aux raids' : ' · ⚔️ pillage possible') : 'Un royaume peut être fondé ici'; }
-    if (!S.dg && r < 45) { const dead = S.bossEnd > S.time; zk = 'boss' + (dead ? Math.ceil((S.bossEnd - S.time) / 300) : 'a'); title = 'Antre du Gardien'; sub = dead ? 'Le Gardien reviendra dans ' + fmtDur(S.bossEnd - S.time) : 'Le Gardien de Malterre veille'; }
+    if (!S.dg && !inL2() && r < 45) { const dead = S.bossEnd > S.time; zk = 'boss' + (dead ? Math.ceil((S.bossEnd - S.time) / 300) : 'a'); title = 'Antre du Gardien'; sub = dead ? 'Le Gardien reviendra dans ' + fmtDur(S.bossEnd - S.time) : 'Le Gardien de Malterre veille'; }
     if (S.dg) { zk = 'dg' + S.dg.floor; title = 'Donjon — étage ' + S.dg.floor; sub = S.dg.floor % 5 === 0 ? 'Étage de boss' : 'Élimine tous les monstres'; }
     for (const v of S.villages) if (Math.hypot(v.x - S.x, v.z - S.z) < 20) { const shd = v.shEnd > S.time, mine = v.s === me.slot; zk = 'v' + v.id + (v.o || '') + (shd ? 's' : ''); title = v.o ? (mine ? 'Ton village' : 'Village de ' + v.o) : 'Village libre'; sub = (v.rich > 1 ? 'Village riche · ' : '') + (shd ? '🛡️ protégé encore ' + fmtDur(v.shEnd - S.time) : mine ? 'Tes gardes le défendent' : 'Élimine les gardes pour le conquérir'); }
     if (zk !== S.zoneKey) { S.zoneKey = zk; const z = $('zone'); z.innerHTML = esc(title) + '<small>' + esc(sub) + '</small>'; z.style.opacity = 1; clearTimeout(S.zoneT); S.zoneT = setTimeout(() => { z.style.opacity = 0; }, 2600); }
-    if (tier !== S.tier) { S.tier = tier; Sound.setTier(tier); }
+    if (tier !== S.tier) { S.tier = tier; Sound.setTier(Math.min(3, tier)); }
     const tg = SKY[tier], kk = Math.min(1, dt * 0.8);
     for (const key of ['fog', 'amb', 'sun']) for (let i = 0; i < 3; i++) sky[key][i] = lerp(sky[key][i], tg[key][i], kk);
     sky.near = lerp(sky.near, tg.near, kk); sky.far = lerp(sky.far, tg.far, kk);
@@ -508,10 +516,12 @@
     if (!S.dead) for (const v of S.villages) if (v.s !== me.slot && v.shEnd <= S.time && Math.hypot(v.x - S.x, v.z - S.z) < 8) { canLoot = true; cap = true; }
     let dgBtn = false;
     if (!S.dead && !S.dg && !canLoot) for (const f of S.forts) { if (!f.o) continue; const p = fortWorld(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); if (Math.hypot(p[0] - S.x, p[1] - S.z) < 6.5) { dgBtn = true; canLoot = true; } }
-    S.btnMode = dgBtn ? 'dg' : cap ? 'cap' : 'loot';
-    const bl = $('btnLoot'), busy = S.lootEnd > S.time && !dgBtn;
+    let flyBtn = false;
+    if (!S.dead && !S.dg && !canLoot) { const mf = S.forts[me.slot], rp = fortWorld(mf, D.PLOTS.roost[0], D.PLOTS.roost[1]); if ((me.b.roost > 0 && Math.hypot(rp[0] - S.x, rp[1] - S.z) < 10) || Math.hypot(S.x - L2.x, S.z - (L2.z - L2.r + 14)) < 12) { flyBtn = true; canLoot = true; } }
+    S.btnMode = flyBtn ? 'fly' : dgBtn ? 'dg' : cap ? 'cap' : 'loot';
+    const bl = $('btnLoot'), busy = S.lootEnd > S.time && !dgBtn && !flyBtn;
     if (bl.hidden === canLoot) bl.hidden = !canLoot;
-    if (canLoot) { bl.classList.toggle('busy', busy); const ic = dgBtn ? '🌀' : cap ? '🚩' : '💰', lb = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : dgBtn ? 'Donjon' : cap ? 'Conquérir' : 'Piller', sp = bl.querySelector('span'), sm = bl.querySelector('small'); if (sp.textContent !== ic) sp.textContent = ic; if (sm.textContent !== lb) sm.textContent = lb; bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); }
+    if (canLoot) { bl.classList.toggle('busy', busy); const ic = flyBtn ? '🐉' : dgBtn ? '🌀' : cap ? '🚩' : '💰', lb = busy ? Math.ceil(S.lootEnd - S.time) + ' s' : flyBtn ? (inL2() ? 'Rentrer' : 'S\'envoler') : dgBtn ? 'Donjon' : cap ? 'Conquérir' : 'Piller', sp = bl.querySelector('span'), sm = bl.querySelector('small'); if (sp.textContent !== ic) sp.textContent = ic; if (sm.textContent !== lb) sm.textContent = lb; bl.querySelector('i').style.setProperty('--p', (busy ? (1 - (S.lootEnd - S.time) / S.lootDur) * 100 : 0) + '%'); }
     // Temps de recharge.
     for (let i = 0; i < 3; i++) {
       const el = $('sk' + i), left = S.cds[i] - S.time, was = el.dataset.cd === '1';
@@ -525,25 +535,38 @@
   const MM = M4.create(), PM = M4.create(), TINT = [1, 1, 1];
   const modelOf = e => e.k === 0 ? D.CLASSES[e.t].model : e.k === 2 ? (D.MOBS[e.t].model || e.t) : (D.MINIONS[e.t].model || e.t);
   const mscale = e => Models.get(modelOf(e)).s * (e.k === 2 ? (D.MOBS[e.t].scale || 1) : e.k === 1 ? (D.MINIONS[e.t].scale || 1) : 1);
-  function drawEnt(e, x, z, shadows) {
-    const mdl = Models.get(modelOf(e)), t = S.time;
-    const grow = Math.min(1, (t - e.born) * 4 + 0.2), s = mscale(e) * grow;
-    const walk = e.a === 1, sw = walk ? Math.sin(t * 10 + e.ph) : 0, atk = Math.max(0, 1 - (t - e.atkT) / 0.32), work = e.a === 2 && atk <= 0;
-    const bob = mdl.kind === 'float' ? 0.14 + Math.sin(t * 2.2 + e.ph) * 0.09 : walk ? Math.abs(sw) * 0.06 : 0;
-    const lunge = mdl.kind === 'quad' || mdl.kind === 'spider' ? Math.sin(atk * Math.PI) * 0.7 : 0;
-    M4.trs(MM, x + Math.sin(e.r) * lunge, bob * s, z + Math.cos(e.r) * lunge, e.r, s, s, s);
-    let tint = Engine.WHITE;
-    if (e.fl & 1) tint = [0.6, 0.85, 1.4]; else if (e.fl & 8) tint = [1.3, 1.25, 0.6]; else if (e.fl & 2) tint = [1.35, 1.0, 0.75];
-    const flash = Math.max(0, e.flash) * 0.55;
+  function drawParts(mdl, M, t, ph, sw, walk, atk, work, tint, flash) {
     for (const p of mdl.parts) {
       let ang = 0;
       if (p.k === 'legL') ang = sw * 0.7; else if (p.k === 'legR') ang = -sw * 0.7;
       else if (p.k === 'armL') ang = -sw * 0.5 + (mdl.pose === 'zombie' ? -1.35 : 0) - (mdl.pose === 'zombie' ? Math.sin(atk * Math.PI) * 0.5 : 0);
-      else if (p.k === 'armR') ang = sw * 0.5 + (mdl.pose === 'zombie' ? -1.35 : mdl.kind === 'float' ? -0.25 : 0) - Math.sin(atk * Math.PI) * 1.9 + (work ? -1.0 + Math.sin(t * 9 + e.ph) * 0.8 : 0);
-      else if (p.k === 'spA') ang = Math.sin(t * 14 + e.ph) * (walk ? 0.22 : 0.04); else if (p.k === 'spB') ang = -Math.sin(t * 14 + e.ph) * (walk ? 0.22 : 0.04);
-      if (p.k === 'body') eng.draw(p.m, MM, tint, flash);
-      else { M4.pivot(PM, p.p[0], p.p[1], p.p[2], p.ax || 'x', ang); M4.mul(PM, MM, PM); eng.draw(p.m, PM, tint, flash); }
+      else if (p.k === 'armR') ang = sw * 0.5 + (mdl.pose === 'zombie' ? -1.35 : mdl.kind === 'float' ? -0.25 : 0) - Math.sin(atk * Math.PI) * 1.9 + (work ? -1.0 + Math.sin(t * 9 + ph) * 0.8 : 0);
+      else if (p.k === 'spA') ang = Math.sin(t * 14 + ph) * (walk ? 0.22 : 0.04); else if (p.k === 'spB') ang = -Math.sin(t * 14 + ph) * (walk ? 0.22 : 0.04);
+      if (p.k === 'body') eng.draw(p.m, M, tint, flash);
+      else { M4.pivot(PM, p.p[0], p.p[1], p.p[2], p.ax || 'x', ang); M4.mul(PM, M, PM); eng.draw(p.m, PM, tint, flash); }
     }
+  }
+  const MT = M4.create();
+  function drawEnt(e, x, z, shadows) {
+    const mdl = Models.get(modelOf(e)), t = S.time;
+    const grow = Math.min(1, (t - e.born) * 4 + 0.2), s = mscale(e) * grow;
+    const walk = e.a === 1, sw = walk ? Math.sin(t * 10 + e.ph) : 0, atk = Math.max(0, 1 - (t - e.atkT) / 0.32), work = e.a === 2 && atk <= 0;
+    // Monture : le héros chevauche quand il se déplace hors combat.
+    const ro = e.k === 0 ? S.roster.get(e.id) : null, mounted = !!ro && ro.st > 0 && walk && t - e.atkT > 3 && (e.id !== S.id || S.mounted);
+    const bob = mdl.kind === 'float' ? 0.14 + Math.sin(t * 2.2 + e.ph) * 0.09 : walk ? Math.abs(sw) * 0.06 : 0;
+    const lunge = mdl.kind === 'quad' || mdl.kind === 'spider' ? Math.sin(atk * Math.PI) * 0.7 : 0;
+    let tint = Engine.WHITE;
+    if (e.fl & 1) tint = [0.6, 0.85, 1.4]; else if (e.fl & 8) tint = [1.3, 1.25, 0.6]; else if (e.fl & 2) tint = [1.35, 1.0, 0.75];
+    const flash = Math.max(0, e.flash) * 0.55;
+    if (mounted) {
+      const mm = Models.get(D.MOUNTS[e.t]), ms = mm.s * 1.45, sw2 = Math.sin(t * 14 + e.ph);
+      M4.trs(MT, x, Math.abs(sw2) * 0.08, z, e.r, ms, ms, ms); drawParts(mm, MT, t, e.ph, sw2, true, 0, false, tint, flash);
+      M4.trs(MM, x, 1.05 + Math.abs(sw2) * 0.08, z, e.r, s, s, s); drawParts(mdl, MM, t, e.ph, 0, false, 0, false, tint, flash);
+      shadows.push(x, z, 1.3, ro.s);
+      return;
+    }
+    M4.trs(MM, x + Math.sin(e.r) * lunge, bob * s, z + Math.cos(e.r) * lunge, e.r, s, s, s);
+    drawParts(mdl, MM, t, e.ph, sw, walk, atk, work, tint, flash);
     if (e.fl & 4) { M4.trs(PM, x - Math.sin(e.r) * 0.4 * s, 1.5 * s, z - Math.cos(e.r) * 0.4 * s, e.r, 0.5, 0.5, 0.5); eng.draw(Models.cube(), PM, [0.75, 0.6, 0.35]); }
     shadows.push(x, z, (mdl.kind === 'quad' ? 0.9 : mdl.kind === 'spider' ? 1.3 : 0.62) * s, e.k === 2 ? -1 : e.k === 0 ? (S.roster.get(e.id) || {}).s : (S.roster.get(e.o) || {}).s);
   }
@@ -555,6 +578,7 @@
     const cp = Math.cos(S.camPitch), eye = [S.x - Math.sin(S.camYaw) * cp * S.camDist + sx, 2 + Math.sin(S.camPitch) * S.camDist + sy, S.z - Math.cos(S.camYaw) * cp * S.camDist];
     eng.begin(eye, [S.x + sx, 2.1 + sy, S.z], sky.fog, sky.near, sky.far, sky.amb, sky.sun);
     if (S.dg) { M4.trs(MM, S.dg.cx, 0, S.dg.cz, 0, 1, 1, 1); eng.draw(Models.dungeonFloor(), MM); }
+    else if (inL2()) { M4.trs(MM, L2.x, 0, L2.z, 0, 1, 1, 1); eng.draw(Models.terrain2(), MM); }
     else { M4.trs(MM, 0, 0, 0, 0, 1, 1, 1); eng.draw(Models.terrain(), MM); }
     const far = sky.far + 12;
 
@@ -563,8 +587,9 @@
       M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1);
       if (!f.o) { eng.draw(Models.emptyFort(), MM); continue; }
       { const pp = fortWorld(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); M4.trs(PM, pp[0], 0, pp[1], f.rot + 0.4, 1, 1, 1); eng.draw(Models.portal(), PM); M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1); }
-      eng.draw(Models.wall(f.c), MM); eng.draw(Models.banner(), MM, slotColor(f.s));
-      for (const b in D.PLOTS) { const p = fortWorld(f, D.PLOTS[b][0], D.PLOTS[b][1]); M4.trs(PM, p[0], 0, p[1], f.rot, 1, 1, 1); eng.draw(Models.building(f.c, b, f.b[b] || 0), PM); }
+      { const wl = f.b.walls || 0; if (wl) M4.trs(MM, f.x, 0, f.z, f.rot, 1 + 0.02 * wl, 1 + 0.14 * wl, 1 + 0.02 * wl); eng.draw(Models.wall(f.c), MM); M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1); }
+      eng.draw(Models.banner(), MM, slotColor(f.s));
+      for (const b in D.PLOTS) { if (!f.b[b] && D.BUILDINGS[b].name) continue; const p = fortWorld(f, D.PLOTS[b][0], D.PLOTS[b][1]); M4.trs(PM, p[0], 0, p[1], f.rot, 1, 1, 1); eng.draw(Models.building(f.c, b, f.b[b] || 0), PM); }
     }
     for (const v of S.villages) {
       if (Math.hypot(v.x - S.x, v.z - S.z) > far + 16) continue;
@@ -596,6 +621,7 @@
     }
     if (target && !S.dead) { const r = (target.k === 2 ? D.MOBS[target.t].rad : 0.7) * 1.5 + 0.3 + Math.sin(S.time * 6) * 0.08; M4.trs(MM, target.x, 0.1, target.z, S.time, r, 1, r); eng.draw(rg, MM, [1.6, 0.25, 0.2], 0, 0.9, true); }
     for (const f of S.forts) if (f.o && f.shEnd > S.time && Math.hypot(f.x - S.x, f.z - S.z) < far + 26) { const rr = 25.6 + Math.sin(S.time * 2) * 0.25; M4.trs(MM, f.x, 0.14, f.z, 0, rr, 1, rr); eng.draw(rg, MM, [0.35, 0.75, 2.2], 0, 0.6, true); M4.trs(MM, f.x, 0.11, f.z, 0, rr, 1, rr); eng.draw(disc, MM, [0.35, 0.75, 2.2], 0, 0.07, true); }
+    for (const f of S.forts) if (f.o && f.b.moat && Math.hypot(f.x - S.x, f.z - S.z) < far + 30) { const w = 27.5 + f.b.moat; M4.trs(MM, f.x, 0.09, f.z, 0, w, 1, w); eng.draw(rg, MM, [0.15, 0.4, 0.75], 0, 0.85, true); M4.trs(MM, f.x, 0.085, f.z, 0, w - 1.2, 1, w - 1.2); eng.draw(rg, MM, [0.2, 0.5, 0.85], 0, 0.7, true); }
     for (const v of S.villages) if (v.shEnd > S.time && Math.hypot(v.x - S.x, v.z - S.z) < far + 16) { M4.trs(MM, v.x, 0.14, v.z, 0, 15.5, 1, 15.5); eng.draw(rg, MM, [0.35, 0.75, 2.2], 0, 0.6, true); }
     for (const r of S.rings) { const t = 1 - r.life / r.max, rad = lerp(r.r0, r.r1, 1 - (1 - t) * (1 - t)); M4.trs(MM, r.x, 0.12, r.z, 0, rad, 1, rad); eng.draw(rg, MM, r.col, 0, (1 - t) * 0.9, true); M4.trs(MM, r.x, 0.1, r.z, 0, rad, 1, rad); eng.draw(disc, MM, r.col, 0, (1 - t) * 0.16, true); }
     eng.setBlend(false);
@@ -638,7 +664,7 @@
     if (boss) {
       const bw = Math.min(w * 0.6, 320), x = (w - bw) / 2, y = h * 0.16;
       octx.fillStyle = 'rgba(0,0,0,.7)'; octx.fillRect(x - 2, y - 2, bw + 4, 14); octx.fillStyle = '#c8362b'; octx.fillRect(x, y, bw * clamp(boss.hp / boss.mh, 0, 1), 10);
-      octx.font = '700 13px Georgia, serif'; octx.strokeStyle = '#000'; octx.lineWidth = 3; octx.strokeText('Gardien de Malterre', w / 2, y - 6); octx.fillStyle = '#ffb347'; octx.fillText('Gardien de Malterre', w / 2, y - 6);
+      octx.font = '700 13px Georgia, serif'; octx.strokeStyle = '#000'; octx.lineWidth = 3; octx.strokeText(D.MOBS[boss.t].name, w / 2, y - 6); octx.fillStyle = '#ffb347'; octx.fillText(D.MOBS[boss.t].name, w / 2, y - 6);
     }
   }
 
@@ -646,6 +672,14 @@
   function minimap() {
     const c = mctx, W = 220, R = 104, k = R / (WR + 5), cx = W / 2, cy = W / 2, P = (x, z) => [cx - x * k, cy - z * k];
     c.clearRect(0, 0, W, W);
+    if (inL2() && !S.dg) {
+      const kk = R / (L2.r + 6), Q = (x, z) => [cx - (x - L2.x) * kk, cy - (z - L2.z) * kk];
+      c.fillStyle = '#4a2018'; c.beginPath(); c.arc(cx, cy, L2.r * kk, 0, TAU); c.fill();
+      const ld = Q(L2.x, L2.z - L2.r + 14); c.fillStyle = '#ffd34d'; c.beginPath(); c.arc(ld[0], ld[1], 6, 0, TAU); c.fill();
+      for (const e of S.ents.values()) { if (e.id === S.id) continue; const q = Q(e.x, e.z); c.fillStyle = e.k === 2 ? (D.MOBS[e.t].boss ? '#ffb347' : '#ff4d40') : e.k === 0 ? '#fff' : '#9dffb4'; const sz = e.k === 2 && D.MOBS[e.t].boss ? 9 : 4; c.fillRect(q[0] - sz / 2, q[1] - sz / 2, sz, sz); }
+      const q = Q(S.x, S.z); c.save(); c.translate(q[0], q[1]); c.rotate(-S.r); c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 7); c.lineTo(0, 3); c.lineTo(-6, 7); c.closePath(); c.stroke(); c.fill(); c.restore();
+      return;
+    }
     if (S.dg) {
       const kk = R / (D.DUNGEON.radius + 4), Q = (x, z) => [cx - (x - S.dg.cx) * kk, cy - (z - S.dg.cz) * kk];
       c.fillStyle = '#2a2233'; c.beginPath(); c.arc(cx, cy, D.DUNGEON.radius * kk, 0, TAU); c.fill();

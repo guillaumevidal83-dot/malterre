@@ -3,7 +3,10 @@
 const crypto = require('crypto');
 const D = require('../shared/data.js');
 
-const W = D.WORLD, TAU = Math.PI * 2, RAD = W.radius;
+const W = D.WORLD, TAU = Math.PI * 2, RAD = W.radius, L2 = D.LAND2;
+const have = (rec, r) => (r in D.ITEMS ? (rec.items || {})[r] : rec.res[r]) || 0;
+const canPay = (rec, cost) => Object.keys(cost).every(r => have(rec, r) >= cost[r]);
+const pay = (rec, cost) => { for (const r in cost) { if (r in D.ITEMS) rec.items[r] -= cost[r]; else rec.res[r] -= cost[r]; } };
 const now = () => Date.now();
 const rnd = (a, b) => a + Math.random() * (b - a);
 const irnd = (a, b) => Math.floor(rnd(a, b + 1));
@@ -79,6 +82,14 @@ class Game {
     scatter('tree', 130, W.tier2, W.tier1, 2); scatter('rock', 65, W.tier2, W.tier1, 2); scatter('vein', 30, W.tier2, W.tier1, 2); scatter('remains', 34, W.tier2, W.tier1, 2);
     scatter('tree', 45, 14, W.tier2, 3); scatter('rock', 22, 14, W.tier2, 3); scatter('vein', 22, 14, W.tier2, 4); scatter('remains', 22, 14, W.tier2, 4);
     if (saved.nodes && saved.v === 4) for (const id in saved.nodes) { const n = nodes[id]; if (n) { n.stock = saved.nodes[id][0]; n.ts = saved.nodes[id][1]; } }
+    { // Terres brûlées : gisements très riches, ajoutés en fin de liste pour ne pas décaler les autres.
+      let tries = 0, left = { tree: 34, rock: 28, vein: 30, remains: 30 };
+      for (const type in left) while (left[type] > 0 && tries++ < 8000) {
+        const a = R() * TAU, r = Math.sqrt(R()) * (L2.r - 8), x = L2.x + Math.sin(a) * r, z = L2.z + Math.cos(a) * r;
+        if (Math.hypot(x - L2.x, z - (L2.z - L2.r + 14)) < 22 || Math.hypot(x - L2.x, z - L2.z) < 26 || !nodes.every(n => (n.x - x) ** 2 + (n.z - z) ** 2 > 16)) continue;
+        add(type, x, z, 6); left[type]--;
+      }
+    }
     for (const n of nodes) n.vis = this.visOf(n);
     // Gisements proches de chaque forteresse, triés par distance (pour les ouvriers).
     for (const f of this.forts) for (const res of GATHER) {
@@ -107,6 +118,14 @@ class Game {
     packs('knight', 16, 2, 2, 24, W.tier2 - 4, 0); packs('troll', 10, 1, 1, 24, W.tier2 - 6, 0);
     sp('guardian', 0, 0);
     for (const v of this.villages) { const n = v.rich > 1 ? 6 : 4; for (let i = 0; i < n; i++) { const a = i / n * TAU; sp('militia', v.x + Math.sin(a) * 6, v.z + Math.cos(a) * 6, false, v); } sp('captain', v.x + 2, v.z + 2, false, v); }
+    { // Monstres des Terres brûlées.
+      const far = (x, z) => Math.hypot(x - L2.x, z - (L2.z - L2.r + 14)) > 38 && Math.hypot(x - L2.x, z - L2.z) > 34;
+      for (const [type, n, c] of [['ashknight', 10, 2], ['lavagolem', 9, 1], ['hellspider', 9, 2], ['emberent', 8, 1], ['drake', 9, 1]]) {
+        let left = n, tries = 0;
+        while (left > 0 && tries++ < 3000) { const a = R() * TAU, r = Math.sqrt(R()) * (L2.r - 14), x = L2.x + Math.sin(a) * r, z = L2.z + Math.cos(a) * r; if (!far(x, z)) continue; for (let i = 0; i < c; i++) sp(type, x + (R() - 0.5) * 8, z + (R() - 0.5) * 8); left--; }
+      }
+      sp('dragon', L2.x, L2.z);
+    }
     const t = now();
     for (const s of spawns) {
       if (saved.v === 4 && saved.dead && saved.dead[s.id] > t) s.deadUntil = saved.dead[s.id]; else if (!(s.village && s.village.owner)) this.spawnMob(s);
@@ -168,7 +187,7 @@ class Game {
     return {
       hp: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.armor || 0)) * (has('h_stone') ? 1.3 : 1),
       dmg: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.weapon || 0)) * (has('h_fury') ? 1.2 : 1) * (p.dmg || 1),
-      speed: 1 + 0.04 * (c.boots || 0), cd: has('h_haste') ? 0.75 : 1, vamp: (has('h_vamp') ? 0.08 : 0) + (p.vamp || 0), regen: (has('f_regen') ? 3 : 1) * (p.regen || 1),
+      speed: 1 + 0.04 * (c.boots || 0), mount: 1 + 0.2 * (b.stable || 0), cd: has('h_haste') ? 0.75 : 1, vamp: (has('h_vamp') ? 0.08 : 0) + (p.vamp || 0), regen: (has('f_regen') ? 3 : 1) * (p.regen || 1),
       mHp: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.marmor || 0)) * (has('m_iron') ? 1.4 : 1) * (p.mHp || 1),
       mDmg: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.mweapon || 0)) * (has('m_venom') ? 1.3 : 1),
       mSpeed: has('m_swift') ? 1.25 : 1,
@@ -176,7 +195,7 @@ class Game {
       revive: p.revive || 1, heroHarvest: p.heroHarvest || D.HERO_HARVEST,
       carry: 5 + (b.workshop || 0) + (has('f_harvest') ? 2 : 0),
       cap: Math.round(D.cap(b) * (has('f_vault') ? 1.5 : 1)), mcap: Math.round(D.minionCap(b) * (p.mcapMul || 1)) + (has('m_swarm') ? 3 : 0),
-      gar: has('f_ward') ? 1.5 : 1, lootTaken: has('f_ward') ? 0.5 : 1,
+      gar: (has('f_ward') ? 1.5 : 1) * (1 + 0.15 * (b.walls || 0)), lootTaken: (has('f_ward') ? 0.5 : 1) * (1 - 0.08 * (b.walls || 0)),
     };
   }
   heroMh(rec, st) { return Math.round((D.CLASSES[rec.cls].hp + 18 * (rec.lvl - 1)) * (st || this.stats(rec)).hp); }
@@ -309,11 +328,12 @@ class Game {
         sess.rec.kills = (sess.rec.kills || 0) + 1;
         this.ev(tgt.x, tgt.z, ['lt', xp, loot, Math.round(tgt.x), Math.round(tgt.z)], sess);
         this.addXp(sess, xp);
+        if (def.item) { sess.rec.items = sess.rec.items || {}; sess.rec.items[def.item] = (sess.rec.items[def.item] || 0) + 1; this.send(sess, { t: 'msg', m: D.ITEMS[def.item].icon + ' Trophée obtenu : ' + D.ITEMS[def.item].name + ' !' }); }
         const chance = (def.relic !== undefined ? def.relic : def.tier >= 2 ? 0.012 : 0.004) * cfg.relicMult;
         if (Math.random() < chance) this.giveRelic(sess);
         sess.dirty = true; names.push(sess.rec.name);
       }
-      if (def.boss && !tgt.sp.dungeon) for (const s2 of this.online.values()) this.send(s2, { t: 'boss', s: Math.round(cfg.respawnBoss) });
+      if (tgt.t === 'guardian' && !tgt.sp.dungeon) for (const s2 of this.online.values()) this.send(s2, { t: 'boss', s: Math.round(cfg.respawnBoss) });
       if (tgt.sp.dungeon) { const g = tgt.sp.dungeon; g.mobs = g.mobs.filter(m => m !== tgt); }
       if (def.boss && names.length && !tgt.sp.dungeon) this.say('⚔️ ' + names.join(', ') + (names.length > 1 ? ' ont' : ' a') + ' vaincu le ' + def.name + ' !');
     } else if (tgt.k === 1) {
@@ -369,6 +389,16 @@ class Game {
         if (!v.owner) continue;
         if (!this.players[v.owner]) { this.freeVillage(v); continue; }
         if ((!v.gar || v.gar.length < D.VILLAGE.guards) && t >= v.regarAt && ![...this.online.values()].some(s => s.key !== v.owner && dist(s.ent, v) < 45)) this.spawnVillageGuards(v);
+      }
+      for (const f of this.forts) {
+        const p = f.owner && this.players[f.owner], lvl = p ? (p.b.tower || 0) : 0;
+        if (!lvl) continue;
+        let best = null, bd = 30;
+        for (const o of this.ents.values()) {
+          const d = Math.hypot(o.x - f.x, o.z - f.z); if (d >= bd) continue;
+          if (o.k === 2 ? d < 28 : (!o.dead && o.zone === f && this.ownerKey(o) !== f.owner && !this.allied(f.owner, this.ownerKey(o)))) { bd = d; best = o; }
+        }
+        if (best) { const tp = this.fortPos(f, D.PLOTS.tower[0], D.PLOTS.tower[1]); this.ev(best.x, best.z, ['fx', 'tower', Math.round(tp.x * 10) / 10, Math.round(tp.z * 10) / 10, 0, 0, Math.round(best.x * 10) / 10, Math.round(best.z * 10) / 10]); this.damage(null, best, 8 + 12 * lvl, 's'); }
       }
       for (const g of [...this.dungeons.values()]) this.dgTick(g, t);
       this.incomeT = (this.incomeT || 0) + 1;
@@ -527,13 +557,13 @@ class Game {
   /* ---------- Réseau ---------- */
   send(sess, obj) { if (sess && sess.conn && sess.conn.open) sess.conn.send(JSON.stringify(obj)); }
   say(text) { for (const s of this.online.values()) this.send(s, { t: 'msg', m: text }); }
-  roster() { return [...this.online.values()].map(s => ({ id: s.ent.id, n: s.rec.name, c: s.rec.cls, l: s.rec.lvl, s: s.rec.slot })); }
+  roster() { return [...this.online.values()].map(s => ({ id: s.ent.id, n: s.rec.name, c: s.rec.cls, l: s.rec.lvl, s: s.rec.slot, st: s.rec.b.stable || 0 })); }
 
   mePayload(sess) {
     const rec = sess.rec, t = now();
     return { t: 'me', name: rec.name, cls: rec.cls, lvl: rec.lvl, xp: rec.xp, need: D.xpNeed(rec.lvl), res: rec.res, cap: sess.st.cap, b: rec.b,
       mcap: sess.st.mcap, slot: rec.slot, dmg: Math.round(this.heroDmg(sess)), kills: rec.kills || 0, speed: sess.st.speed,
-      craft: rec.craft || {}, relics: rec.relics || [], eq: rec.eq || {}, vill: this.villagesOf(sess.key).length, vinc: this.villageIncome(sess.key), allies: this.allyList(sess.key), dgBest: rec.dgBest || 0,
+      craft: rec.craft || {}, relics: rec.relics || [], eq: rec.eq || {}, vill: this.villagesOf(sess.key).length, vinc: this.villageIncome(sess.key), allies: this.allyList(sess.key), dgBest: rec.dgBest || 0, items: rec.items || {}, mount: sess.st.mount,
       minions: rec.minions.map(m => [m.t, m.role, m.deadUntil ? Math.max(1, Math.ceil((m.deadUntil - t) / 1000)) : 0]) };
   }
 
@@ -587,6 +617,7 @@ class Game {
       case 'order': this.onOrder(sess); break;
       case 'role2': this.onRole2(sess, String(msg.m), String(msg.r), msg.d > 0 ? 1 : -1); break;
       case 'ally': this.onAlly(sess, String(msg.n)); break;
+      case 'fly': this.onFly(sess); break;
       case 'dgenter': this.dgEnter(sess); break;
       case 'dgnext': this.dgNext(sess); break;
       case 'dgexit': this.dgExit(sess, true); break;
@@ -624,7 +655,7 @@ class Game {
       const salt = crypto.randomBytes(8).toString('hex');
       rec = this.players[key] = { name, pin: this.hashPin(pin, salt), salt, tok: null, cls, slot: f.s, lvl: 1, xp: 0,
         res: Object.assign({}, D.START.res), b: { throne: 1, storage: 0, barracks: 0, altar: 0, workshop: 0 },
-        minions: D.START.roles.map(r => ({ t: D.CLASSES[cls].minions[0], role: r })), lastSeen: t, created: t, kills: 0, shield: t + this.cfg.newShieldH * 3600e3, reports: [], allies: [], craft: {}, relics: [], eq: {} };
+        minions: D.START.roles.map(r => ({ t: D.CLASSES[cls].minions[0], role: r })), lastSeen: t, created: t, kills: 0, shield: t + this.cfg.newShieldH * 3600e3, reports: [], allies: [], items: {}, craft: {}, relics: [], eq: {} };
       f.owner = key;
       this.fortBroadcast(f);
       this.say('🏰 ' + name + ' fonde un royaume en Malterre.');
@@ -663,7 +694,7 @@ class Game {
     }
     rec.lastSeen = t;
     const p = this.fortPos(f, D.FORT.spawn[0], D.FORT.spawn[1]);
-    rec.craft = rec.craft || {}; rec.relics = rec.relics || []; rec.eq = rec.eq || {}; rec.allies = rec.allies || [];
+    rec.craft = rec.craft || {}; rec.relics = rec.relics || []; rec.eq = rec.eq || {}; rec.allies = rec.allies || []; rec.items = rec.items || {};
     const st = this.stats(rec), mh = this.heroMh(rec, st);
     const ent = { id: this.nextId++, k: 0, t: rec.cls, key, x: p.x, z: p.z, r: f.rot, hp: mh, mh, a: 0, dead: false, rad: 0.6,
       nextAtk: 0, cds: [0, 0, 0], buffUntil: 0, lastHit: 0, atkAnim: 0, recallAt: 0 };
@@ -698,11 +729,12 @@ class Game {
     let x = +msg.x, z = +msg.z; const r = +msg.r;
     if (!isFinite(x) || !isFinite(z) || !isFinite(r)) return;
     const el = Math.min(1, (t - sess.lastMv) / 1000); sess.lastMv = t;
-    const max = D.CLASSES[e.t].speed * sess.st.speed * el * 1.6 + 1.5;
+    const max = D.CLASSES[e.t].speed * sess.st.speed * sess.st.mount * el * 1.6 + 1.5;
     let dx = x - e.x, dz = z - e.z, d = Math.hypot(dx, dz), fix = false;
     if (d > max) { x = e.x + dx / d * max; z = e.z + dz / d * max; fix = true; }
     const rr = Math.hypot(x, z);
     if (sess.dg) { const g = sess.dg, dd = Math.hypot(x - g.cx, z - g.cz), lim = D.DUNGEON.radius - 1; if (dd > lim) { x = g.cx + (x - g.cx) / dd * lim; z = g.cz + (z - g.cz) / dd * lim; fix = true; } }
+    else if (Math.hypot(e.x - L2.x, e.z - L2.z) < L2.r + 30) { const dd = Math.hypot(x - L2.x, z - L2.z), lim = L2.r - 3; if (dd > lim) { x = L2.x + (x - L2.x) / dd * lim; z = L2.z + (z - L2.z) / dd * lim; fix = true; } }
     else if (rr > RAD - 3) { x *= (RAD - 3) / rr; z *= (RAD - 3) / rr; fix = true; }
     e.x = x; e.z = z; e.r = r;
     if (e.a !== 2) e.a = msg.a ? 1 : 0;
@@ -798,12 +830,13 @@ class Game {
     if (b !== 'throne' && lvl >= rec.b.throne) return err('Améliore d\'abord ton trône.');
     if (b === 'throne' && rec.lvl < D.throneNeed(lvl)) return err('Ton héros doit être niveau ' + D.throneNeed(lvl) + '.');
     const cost = D.cost(b, lvl, rec.cls);
-    for (const r in cost) if ((rec.res[r] || 0) < cost[r]) return err('Ressources insuffisantes.');
-    for (const r in cost) rec.res[r] -= cost[r];
+    if (!canPay(rec, cost)) return err(Object.keys(cost).some(r => r in D.ITEMS && have(rec, r) < cost[r]) ? 'Il te manque un trophée de boss.' : 'Ressources insuffisantes.');
+    pay(rec, cost);
     rec.b[b] = lvl + 1;
     const e = sess.ent, f = this.forts[rec.slot];
     this.refresh(sess);
-    const p = this.fortPos(f, D.PLOTS[b][0], D.PLOTS[b][1]);
+    const pl = D.PLOTS[b] || [0, 0], p = this.fortPos(f, pl[0], pl[1]);
+    if (b === 'stable') this.rosterDirty = true;
     this.ev(p.x, p.z, ['fx', 'build', Math.round(p.x), Math.round(p.z), 5, e.id]);
     for (const s of this.online.values()) this.send(s, { t: 'fort', f: this.fortInfo(f) });
     sess.dirty = true;
@@ -874,6 +907,20 @@ class Game {
     this.send(sess, { t: 'msg', m: had ? 'Alliance rompue avec ' + other.name + '.' : mutual ? '🤝 Alliance conclue avec ' + other.name + ' !' : 'Proposition envoyée à ' + other.name + '.' });
   }
 
+  // Vol à dos de dragon : de l'aire du dragon vers les Terres brûlées, et retour depuis la pierre d'atterrissage.
+  onFly(sess) {
+    const e = sess.ent, rec = sess.rec, f = this.forts[rec.slot], err = m => this.send(sess, { t: 'err', m });
+    if (e.dead || sess.dg) return;
+    const land = { x: L2.x, z: L2.z - L2.r + 14 }, rp = this.fortPos(f, D.PLOTS.roost[0], D.PLOTS.roost[1]);
+    let to = null;
+    if (Math.hypot(e.x - land.x, e.z - land.z) < 14) to = this.fortPos(f, D.PLOTS.roost[0] + 6, D.PLOTS.roost[1] + 4);
+    else if (Math.hypot(e.x - rp.x, e.z - rp.z) < 12) { if (!(rec.b.roost > 0)) return err('Construis d\'abord l\'aire du dragon.'); to = { x: land.x + 5, z: land.z + 3 }; }
+    else return err('Rends-toi à ton aire du dragon.');
+    e.x = to.x; e.z = to.z;
+    for (const m of sess.minions) if (m.temp || m.rec.role === 'escort') { m.x = e.x + rnd(-3, 3); m.z = e.z + rnd(-3, 3); m.tgt = null; }
+    this.send(sess, { t: 'tp', x: e.x, z: e.z, fly: 1 });
+  }
+
   /* ---------- Donjon ---------- */
   portalPos(f) { return this.fortPos(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); }
   dgEnter(sess) {
@@ -902,7 +949,7 @@ class Game {
     for (let i = 0; i < (boss ? Math.floor(n / 2) : n); i++) list.push(P[Math.floor(Math.random() * P.length)]);
     list.forEach((type, i) => {
       const base = D.MOBS[type], top = boss && i === 0, a = i / list.length * TAU, r = top ? 0 : 10 + Math.random() * 14;
-      const def = Object.assign({}, base, { hp: Math.round(base.hp * (1 + 0.18 * k) * (top && base.boss ? 0.5 : 1)), dmg: base.dmg * (1 + 0.1 * k) * (top && base.boss ? 0.7 : 1), xp: Math.round(base.xp * (1 + 0.15 * k)), relic: 0, boss: false, elite: top || base.elite, aggro: 60 });
+      const def = Object.assign({}, base, { hp: Math.round(base.hp * (1 + 0.18 * k) * (top && base.boss ? 0.5 : 1)), dmg: base.dmg * (1 + 0.1 * k) * (top && base.boss ? 0.7 : 1), xp: Math.round(base.xp * (1 + 0.15 * k)), relic: 0, item: null, boss: false, elite: top || base.elite, aggro: 60 });
       const sp = { id: -1, type, x: g.cx + Math.sin(a) * r, z: g.cz + 6 + Math.cos(a) * r, roam: true, deadUntil: 0, ent: null, dungeon: g };
       const m = this.spawnMob(sp); m.def = def; m.hp = m.mh = def.hp; g.mobs.push(m);
     });
@@ -916,8 +963,10 @@ class Game {
     for (const s of g.members) {
       const rec = s.rec, reward = { gold: 20 * f, spec: 20 * f, wood: 12 * f, stone: 12 * f };
       for (const r in reward) this.addRes(rec, r, reward[r]);
+      // (les éclats d'abîme s'ajoutent plus bas, hors stock)
       this.addXp(s, 40 * f);
       const best = f > (rec.dgBest || 0); if (best) rec.dgBest = f;
+      if (boss) { rec.items = rec.items || {}; rec.items.shard = (rec.items.shard || 0) + f / 5; reward.shard = f / 5; }
       if (Math.random() < (boss ? 0.35 : Math.min(0.2, 0.02 * f)) * this.cfg.relicMult) this.giveRelic(s);
       s.dirty = true;
       this.send(s, { t: 'dg', floor: f, state: 'clear', reward, best });
@@ -1020,8 +1069,9 @@ class Game {
     if (this.allied(f.owner, sess.key)) return err('On ne pille pas un allié.');
     const sp = this.fortPos(f, D.PLOTS.storage[0], D.PLOTS.storage[1]);
     if (Math.hypot(sp.x - e.x, sp.z - e.z) > 8) return err('Approche-toi de la réserve.');
-    sess.loot = { f, until: now() + this.cfg.lootTime * 1000 };
-    this.send(sess, { t: 'lootc', s: this.cfg.lootTime });
+    const lt = this.cfg.lootTime + 3 * ((this.players[f.owner].b.moat) || 0);
+    sess.loot = { f, until: now() + lt * 1000 };
+    this.send(sess, { t: 'lootc', s: lt });
     const owner = this.online.get(f.owner);
     if (owner) { f.alertAt = now(); this.send(owner, { t: 'alert', m: '🚨 ' + sess.rec.name + ' pille ta réserve !' }); }
   }
@@ -1074,6 +1124,7 @@ class Game {
       case 'give': {
         if (!rec) return { error: 'Joueur introuvable.' };
         for (const r in D.RES) { const n = Math.round(+((a.res || {})[r]) || 0); if (n) this.addRes(rec, r, n); }
+        rec.items = rec.items || {}; for (const k in D.ITEMS) { const n = Math.round(+((a.items || {})[k]) || 0); if (n) rec.items[k] = Math.max(0, (rec.items[k] || 0) + n); }
         if (+a.xp > 0 && this.online.has(key)) this.addXp(this.online.get(key), Math.round(+a.xp));
         const s = this.online.get(key); if (s) s.dirty = true;
         return { ok: 'Ressources données à ' + rec.name + '.' };

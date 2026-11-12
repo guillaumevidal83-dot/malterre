@@ -60,6 +60,9 @@
         <div><label class="s">💰 Or</label><input id="g_gold" type="number" value="0"></div>
         <div><label class="s">✨ Spécial</label><input id="g_spec" type="number" value="0"></div>
         <div><label class="s">⭐ XP (si en ligne)</label><input id="g_xp" type="number" value="0"></div>
+        <div><label class="s">💗 Cœur du Gardien</label><input id="g_heart" type="number" value="0"></div>
+        <div><label class="s">💠 Éclat d'abîme</label><input id="g_shard" type="number" value="0"></div>
+        <div><label class="s">🐲 Écaille de dragon</label><input id="g_scale" type="number" value="0"></div>
       </div>
       <div class="rowb"><button id="giveBtn">Donner</button><input id="shH" type="number" value="4" min="0" style="width:70px"><button id="shBtn" class="ghost">Bouclier (heures, 0 = retirer)</button><button id="relBtn" class="ghost">Donner une relique</button></div>
       <div class="rowb" style="margin-top:6px"><small>Un nombre négatif retire. Le stock reste limité par l'entrepôt.</small></div>
@@ -121,7 +124,7 @@ function render() {
 
 $('loginF').addEventListener('submit', e => { e.preventDefault(); pw = $('pw').value; api('state'); });
 $('players').addEventListener('click', e => { const n = e.target.dataset.del; if (n && confirm('Supprimer définitivement le royaume de ' + n + ' ?')) api('delPlayer', { name: n }); });
-$('giveBtn').addEventListener('click', () => api('give', { name: $('gName').value, xp: +$('g_xp').value, res: { wood: +$('g_wood').value, stone: +$('g_stone').value, gold: +$('g_gold').value, spec: +$('g_spec').value } }));
+$('giveBtn').addEventListener('click', () => api('give', { name: $('gName').value, xp: +$('g_xp').value, items: { heart: +$('g_heart').value, shard: +$('g_shard').value, scale: +$('g_scale').value }, res: { wood: +$('g_wood').value, stone: +$('g_stone').value, gold: +$('g_gold').value, spec: +$('g_spec').value } }));
 $('relBtn').addEventListener('click', () => api('relic', { name: $('gName').value }));
 $('shBtn').addEventListener('click', () => api('shield', { name: $('gName').value, hours: +$('shH').value }));
 $('cfg').addEventListener('input', () => { cfgTouched = true; });

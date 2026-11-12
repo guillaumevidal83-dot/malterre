@@ -70,6 +70,7 @@ const Models = (function () {
     body.at(0, 1.02, 0.95).box(0.5, 0.46, 0.56, c); body.at(0, 0.92, 1.3).box(0.28, 0.24, 0.3, d);
     body.at(-0.17, 1.3, 0.85).cyl(0.09, 0, 0.22, 4, d); body.at(0.17, 1.3, 0.85).cyl(0.09, 0, 0.22, 4, d);
     body.at(-0.14, 1.1, 1.235).box(0.07, 0.07, 0.02, o.eye); body.at(0.14, 1.1, 1.235).box(0.07, 0.07, 0.02, o.eye);
+    if (o.wings) { body.at(-0.9, 1.5, -0.1, 0, 0, 0.5).box(1.6, 0.08, 1.1, o.wings); body.at(0.9, 1.5, -0.1, 0, 0, -0.5).box(1.6, 0.08, 1.1, o.wings); body.at(0, 1.25, 0).box(0.14, 0.2, 1.4, o.wings); body.at(-0.15, 1.42, 1.0).cyl(0.07, 0, 0.3, 4, [0.9, 0.85, 0.7]); body.at(0.15, 1.42, 1.0).cyl(0.07, 0, 0.3, 4, [0.9, 0.85, 0.7]); }
     if (o.tusks) { body.at(-0.18, 0.86, 1.4, 0, -0.6).cyl(0.05, 0, 0.3, 4, [0.95, 0.93, 0.85]); body.at(0.18, 0.86, 1.4, 0, -0.6).cyl(0.05, 0, 0.3, 4, [0.95, 0.93, 0.85]); body.at(0, 1.25, 0).box(0.12, 0.14, 1.3, d); }
     else body.at(0, 1.0, -0.9, 0, -0.7).box(0.12, 0.12, 0.6, d);
     parts.push({ geo: body, p: [0, 0, 0], k: 'body' });
@@ -133,6 +134,8 @@ const Models = (function () {
     crossbow: () => humanoid({ skin: hex('#8d9aa8'), cloth: hex('#4a5560'), limb: hex('#7c8896'), head: 'helm', eye: [0.5, 1.6, 2.4], weapon: 'bow', bulk: 0.85 }),
     blade: () => humanoid({ skin: hex('#c9ced6'), cloth: hex('#27406b'), limb: hex('#aab2bd'), head: 'helm', eye: [2.2, 0.5, 0.3], weapon: 'sword', bulk: 0.85 }),
     militia: () => humanoid({ skin: hex('#d2a680'), cloth: hex('#2f4f7a'), head: 'helm', eye: [0.1, 0.1, 0.1], weapon: 'sword' }),
+    drake: () => quad({ col: hex('#8f2a1c'), w: 1.3, eye: [2.4, 1.8, 0.2], wings: hex('#5a1410') }),
+    bonehorse: () => quad({ col: hex('#d9d4c0'), w: 0.9, eye: [0.4, 1.8, 0.7] }),
     wolf: () => quad({ col: hex('#7c7f88'), w: 1, eye: [1.6, 1.3, 0.3] }),
     boar: () => quad({ col: hex('#6b4a33'), w: 1.3, eye: [0.1, 0.1, 0.1], tusks: true }),
     bandit: () => humanoid({ skin: hex('#d2a680'), cloth: hex('#5a4a3a'), head: 'hood', weapon: 'sword' }),
@@ -142,7 +145,7 @@ const Models = (function () {
     troll: () => humanoid({ skin: hex('#6f8fa3'), cloth: hex('#4c3b2a'), head: 'round', eye: [1.6, 1.4, 0.3], tusks: true, ears: true, weapon: 'club', bulk: 1.6 }),
     guardian: () => humanoid({ skin: hex('#6b6f78'), cloth: hex('#585c66'), limb: hex('#7a7e88'), head: 'helm', eye: [2.2, 1.0, 0.2], core: [2.4, 1.1, 0.2], bulk: 1.7 }),
   };
-  const SCALE = { demon_lord: 1.15, druid: 1.12, dwarf_lord: 0.95, imp: 0.65, borer: 0.65, spitter: 0.68, hound: 1.0, fiend: 1.1, sprite: 0.65, forager: 0.65, dryad: 0.9, bear: 1.25, automaton: 0.9, driller: 0.9, crossbow: 0.9, blade: 0.95, digger: 0.9, archer: 0.9, miner: 0.7, slinger: 0.7, berserker: 0.85, lich: 1.15, goblin_king: 1.1, skeleton: 0.9, raised: 0.9, zombie: 1.0, goblin: 0.7, brute: 1.05, wolf: 1.0, boar: 1.0, bandit: 1.0, spider: 1.25, orc: 1.25, knight: 1.25, troll: 2.1, guardian: 3.4 };
+  const SCALE = { drake: 1.2, bonehorse: 1.0, demon_lord: 1.15, druid: 1.12, dwarf_lord: 0.95, imp: 0.65, borer: 0.65, spitter: 0.68, hound: 1.0, fiend: 1.1, sprite: 0.65, forager: 0.65, dryad: 0.9, bear: 1.25, automaton: 0.9, driller: 0.9, crossbow: 0.9, blade: 0.95, digger: 0.9, archer: 0.9, miner: 0.7, slinger: 0.7, berserker: 0.85, lich: 1.15, goblin_king: 1.1, skeleton: 0.9, raised: 0.9, zombie: 1.0, goblin: 0.7, brute: 1.05, wolf: 1.0, boar: 1.0, bandit: 1.0, spider: 1.25, orc: 1.25, knight: 1.25, troll: 2.1, guardian: 3.4 };
 
   function build(def) { for (const p of def.parts) { p.m = eng.mesh(p.geo); delete p.geo; } return def; }
   function get(name) { if (!cache[name]) { cache[name] = build(DEFS[name]()); cache[name].s = SCALE[name] || 1; } return cache[name]; }
@@ -249,6 +252,27 @@ const Models = (function () {
           if (cls === 'goblin' || cls === 'druid') g.at(x, 0, z, 0, 0, i % 2 ? -0.2 : 0.2).cyl(0.16, 0, 2.2, 4, WOOD);
           else { g.at(x, 0.55, z).box(0.7, 1.1, 0.2, P.trim); }
         }
+      } else if (type === 'tower') {
+        const H = 6 + lvl * 1.2;
+        g.at(0, 0, 0).cyl(2.1, 1.7, H, 8, P.stone); g.at(0, H, 0).cyl(2.5, 2.5, 0.8, 8, P.dark);
+        for (let i = 0; i < 8; i += 2) { const a = i / 8 * TAU; g.at(Math.cos(a) * 2.2, H + 1.1, Math.sin(a) * 2.2).box(0.7, 0.7, 0.7, P.dark); }
+        g.at(0, H + 0.8, 0).cyl(0.2, 0.2, 2.2, 4, WOOD); g.at(0, H + 3.2, 0).ball(0.45, 0.6, 0.45, P.glow, 5, 3);
+        g.at(0, 1.1, 1.9).box(1.1, 2.2, 0.3, DARK);
+      } else if (type === 'stable') {
+        g.at(0, 1.1, -0.6).box(6, 2.2, 3, P.stone); g.at(0, 2.2, -0.6, 0, 0.25).box(6.6, 0.3, 4, P.roof);
+        for (const x of [-2.6, 0, 2.6]) g.at(x, 1.0, 1.0).cyl(0.15, 0.15, 2, 4, WOOD);
+        g.at(0, 0.9, 2.6).box(6.4, 0.14, 0.14, WOOD); g.at(0, 0.45, 2.6).box(6.4, 0.14, 0.14, WOOD);
+        for (const x of [-3.1, 3.1]) g.at(x, 0.5, 2.6).cyl(0.14, 0.14, 1.1, 4, WOOD);
+        for (let i = 0; i < lvl; i++) g.at(-2 + i * 2, 0.35, 1.9).box(1.2, 0.7, 0.8, [0.8, 0.7, 0.3]);
+      } else if (type === 'roost') {
+        const sc = [0.55, 0.16, 0.12];
+        g.at(0, 0, 0).cyl(5, 5.4, 1, 10, P.dark);
+        for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; g.at(Math.cos(a) * 4.6, 1.3, Math.sin(a) * 4.6, a).box(1.6, 1.4 + (i % 3) * 0.5, 1.2, P.stone); }
+        g.at(0, 2.3, 0).box(1.9, 1.5, 4.2, sc); g.at(0, 3.5, 2.6).box(1.3, 1.2, 1.6, sc); g.at(0, 3.3, 3.6).box(0.8, 0.6, 1, mul(sc, 0.8));
+        g.at(-2.4, 3.4, -0.3, 0, 0, 0.55).box(3.6, 0.14, 2.6, mul(sc, 0.65)); g.at(2.4, 3.4, -0.3, 0, 0, -0.55).box(3.6, 0.14, 2.6, mul(sc, 0.65));
+        g.at(0, 2.0, -2.8, 0, -0.5).box(0.6, 0.6, 2.4, sc);
+        for (const x of [-0.35, 0.35]) { g.at(x, 3.75, 3.42).box(0.2, 0.2, 0.04, [2.4, 1.8, 0.2]); g.at(x, 4.2, 2.4).cyl(0.12, 0, 0.6, 4, [0.9, 0.85, 0.7]); }
+        for (const [x, z] of [[-0.7, 1.6], [0.7, 1.6], [-0.7, -1.4], [0.7, -1.4]]) g.at(x, 1.3, z).box(0.5, 1.2, 0.5, mul(sc, 0.8));
       } else if (type === 'altar') {
         g.at(0, 0, 0).cyl(2.7, 2.4, 0.5, 8, P.stone);
         g.at(0, 0.5, 0).cyl(0.55, 0.42, 1.5 + 0.4 * lvl, 6, P.dark);
@@ -316,6 +340,20 @@ const Models = (function () {
       for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.4; g.at(Math.sin(a) * 18, 0, Math.cos(a) * 18).cyl(1, 0.8, 6, 6, [0.24, 0.22, 0.3]); }
     });
   }
+  function terrain2() {
+    return single('terrain2', g => {
+      const R = rng(777), v = g.v, S = 10, L = DATA.LAND2, RAD = L.r + 8;
+      const col = (x, z) => { const r = Math.hypot(x, z), n = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin(x * 0.21 + z * 0.13) * Math.cos(z * 0.17 - x * 0.09)), lava = Math.sin(x * 0.08) * Math.cos(z * 0.07) > 0.82; return lava ? [1.6, 0.5, 0.1] : r > L.r - 6 ? [0.2 * n, 0.14 * n, 0.14 * n] : [0.3 * n, 0.19 * n, 0.17 * n]; };
+      for (let x = -RAD; x < RAD; x += S) for (let z = -RAD; z < RAD; z += S) {
+        if (Math.hypot(x + S / 2, z + S / 2) > RAD + S) continue;
+        for (const [px, pz] of [[x, z], [x, z + S], [x + S, z + S], [x, z], [x + S, z + S], [x + S, z]]) { const c = col(px, pz); v.push(px, 0, pz, 0, 1, 0, c[0], c[1], c[2]); }
+      }
+      for (let i = 0; i < 700; i++) { const a = R() * TAU, r = Math.sqrt(R()) * (L.r - 4), x = Math.sin(a) * r, z = Math.cos(a) * r; if (R() < 0.6) g.at(x, 0.15, z, R() * 3).box(0.5 + R(), 0.3 + R() * 0.6, 0.5 + R(), [0.16, 0.13, 0.14]); else g.at(x, 0, z, R() * 3).cyl(0.25, 0, 1 + R() * 1.6, 4, [0.12, 0.1, 0.1]); }
+      // Pierre d'atterrissage.
+      const lz = -L.r + 14; g.at(0, 0.05, lz).disc(7, 14, [0.4, 0.36, 0.4]); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; g.at(Math.sin(a) * 6.5, 0, lz + Math.cos(a) * 6.5).cyl(0.5, 0.35, 3, 5, [0.3, 0.27, 0.32]); g.at(Math.sin(a) * 6.5, 3.2, lz + Math.cos(a) * 6.5).ball(0.3, 0.4, 0.3, [2.2, 0.8, 0.2], 4, 3); }
+      g.at(0, -0.5, 0).disc(700, 16, [0.25, 0.07, 0.04]);
+    });
+  }
   function emptyFort() {
     return single('empty', g => {
       g.at(0, 0.03, 0).disc(24, 24, [0.4, 0.38, 0.33]);
@@ -325,7 +363,7 @@ const Models = (function () {
   }
 
   return {
-    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag, portal, dungeonFloor,
+    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag, portal, dungeonFloor, terrain2,
     cube: () => single('cube', g => g.box(1, 1, 1, [1, 1, 1])),
     disc: () => single('disc', g => g.disc(1, 16, [1, 1, 1])),
     orb: () => single('orb', g => g.ball(1, 1, 1, [1, 1, 1], 6, 4)),
