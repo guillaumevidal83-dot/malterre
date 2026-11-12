@@ -1,7 +1,7 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.8.0',
+    VERSION: '0.8.1',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
@@ -12,6 +12,8 @@
       relicMult: 1, refund: 0.5, villageMax: 99, villageIncome: 1, villageShieldMin: 10, captureTime: 6,
     },
     CONFIG_VERSION: 2,
+    // Numéro de monde : l'augmenter efface tous les royaumes au prochain démarrage (les réglages admin sont gardés).
+    WORLD_EPOCH: 2,
     CONFIG_LABELS: {
       respawnMob: 'Réapparition des mobs (s)', respawnElite: 'Réapparition des élites (s)',
       respawnBoss: 'Réapparition du boss (s)', regenNode: 'Régénération des gisements (s par unité)',

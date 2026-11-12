@@ -1113,7 +1113,7 @@ class Game {
     for (const n of this.nodes) if (this.nodeStock(n) < n.max) nodes[n.id] = [n.stock, n.ts];
     for (const s of this.spawns) if (s.deadUntil > t) dead[s.id] = s.deadUntil;
     const villages = {}; for (const v of this.villages) if (v.owner) villages[v.id] = [v.owner, v.shieldUntil];
-    return { v: 4, cfgV: D.CONFIG_VERSION, villages, seed: this.seed, created: this.created, cfg: this.cfg, players: this.players, nodes, dead };
+    return { v: 4, cfgV: D.CONFIG_VERSION, epoch: D.WORLD_EPOCH, villages, seed: this.seed, created: this.created, cfg: this.cfg, players: this.players, nodes, dead };
   }
 
   adminState() {

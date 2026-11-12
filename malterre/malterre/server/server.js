@@ -18,6 +18,13 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   const store = await createStore();
   let saved = null;
   try { saved = await store.load(); } catch (e) { console.error('[store] lecture impossible :', e.message); }
+  const D = require('../shared/data.js');
+  if (saved && (saved.epoch || 1) < D.WORLD_EPOCH) {
+    // Remise à zéro demandée par une mise à jour : on garde une copie de secours et les réglages, on efface le reste.
+    try { await store.backup(saved); } catch (e) { console.error('[store] copie de secours impossible :', e.message); }
+    console.log('[malterre] remise à zéro du monde (' + Object.keys(saved.players || {}).length + ' royaume(s) effacé(s), copie de secours enregistrée)');
+    saved = { cfg: saved.cfg, cfgV: saved.cfgV };
+  }
   const game = new Game(saved);
   console.log('[malterre] sauvegarde : ' + store.kind + ' — ' + Object.keys(game.players).length + ' joueur(s), ' + game.nodes.length + ' gisements, ' + game.spawns.length + ' mobs');
   if (!ADMIN_PASSWORD) console.log('[malterre] page admin désactivée : définis la variable ADMIN_PASSWORD pour l\'activer.');
