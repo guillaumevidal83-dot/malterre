@@ -94,24 +94,39 @@ Geo._a = M4.create();
 
 class Engine {
   constructor(canvas) {
-    const gl = this.gl = canvas.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+    const gl = this.gl = canvas.getContext('webgl', { antialias: true, alpha: false, stencil: true, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL indisponible');
     this.canvas = canvas;
     const vs = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC;
 uniform mat4 uVP; uniform mat4 uM; uniform vec3 uCam;
-varying vec3 vC; varying vec3 vN; varying float vD;
-void main(){ vec4 w = uM * vec4(aP, 1.0); vN = mat3(uM) * aN; vC = aC; vD = length(w.xyz - uCam); gl_Position = uVP * w; }`;
+varying vec3 vC; varying vec3 vN; varying float vD; varying vec3 vW; varying vec3 vV;
+void main(){ vec4 w = uM * vec4(aP, 1.0); vN = mat3(uM) * aN; vC = aC; vW = w.xyz; vV = uCam - w.xyz; vD = length(vV); gl_Position = uVP * w; }`;
+    // Éclairage : lumière du ciel et du sol (hémisphère), soleil adouci, ombrage au pied des objets, liseré de contre-jour.
     const fs = `precision mediump float;
 uniform vec3 uL; uniform vec3 uAmb; uniform vec3 uSun; uniform vec3 uTint; uniform vec3 uFog; uniform vec2 uFogR; uniform float uFlash; uniform float uA; uniform float uUnlit;
-varying vec3 vC; varying vec3 vN; varying float vD;
-void main(){ float l = max(dot(normalize(vN), uL), 0.0);
-  vec3 c = vC * uTint * mix(uAmb + uSun * l, vec3(1.0), uUnlit) + vec3(uFlash);
+varying vec3 vC; varying vec3 vN; varying float vD; varying vec3 vW; varying vec3 vV;
+void main(){ vec3 n = normalize(vN); float d = dot(n, uL);
+  float l = max(d, 0.0) * 0.8 + (d * 0.5 + 0.5) * 0.2;
+  vec3 hemi = mix(uAmb * 0.58, uAmb * 1.1, n.y * 0.5 + 0.5);
+  float ao = n.y > 0.9 ? 1.0 : mix(0.68, 1.0, clamp(vW.y / 1.8, 0.0, 1.0));
+  float rim = pow(1.0 - max(dot(n, normalize(vV)), 0.0), 3.0) * 0.22 * (1.0 - uUnlit);
+  vec3 c = vC * uTint * mix((hemi + uSun * l) * ao, vec3(1.0), uUnlit) + rim * uAmb + vec3(uFlash);
+  float g = dot(c, vec3(0.3, 0.59, 0.11)); c = mix(vec3(g), c, 1.15);
   float f = clamp((vD - uFogR.x) / (uFogR.y - uFogR.x), 0.0, 1.0);
-  gl_FragColor = vec4(mix(c, uFog, f), uA); }`;
+  gl_FragColor = vec4(mix(c, uFog, f * f * (3.0 - 2.0 * f)), uA); }`;
     const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     const p = this.prog = gl.createProgram();
     gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    // Ciel : dégradé de l'horizon vers le zénith, dessiné en fond.
+    const sp = this.skyProg = gl.createProgram();
+    gl.attachShader(sp, sh(gl.VERTEX_SHADER, 'attribute vec2 aQ; varying float vY; void main(){ vY = aQ.y; gl_Position = vec4(aQ, 0.9999, 1.0); }'));
+    gl.attachShader(sp, sh(gl.FRAGMENT_SHADER, 'precision mediump float; uniform vec3 uH; uniform vec3 uZ; varying float vY; void main(){ float t = smoothstep(0.05, 1.0, vY); gl_FragColor = vec4(mix(uH, uZ, t), 1.0); }'));
+    gl.linkProgram(sp);
+    this.skyQ = gl.getAttribLocation(sp, 'aQ'); this.skyU = { uH: gl.getUniformLocation(sp, 'uH'), uZ: gl.getUniformLocation(sp, 'uZ') };
+    this.skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.skyBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+    this.shM = []; this.shMesh = []; this.shN = 0;
+    this.SH = M4.create(); { const L = [0.45, 0.8, 0.4], S = this.SH; S[4] = -L[0] / L[1]; S[5] = 0; S[6] = -L[2] / L[1]; S[13] = 0.075; }
     gl.useProgram(p);
     this.a = { P: gl.getAttribLocation(p, 'aP'), N: gl.getAttribLocation(p, 'aN'), C: gl.getAttribLocation(p, 'aC') };
     this.u = {}; for (const n of ['uVP', 'uM', 'uCam', 'uL', 'uAmb', 'uSun', 'uTint', 'uFog', 'uFogR', 'uFlash', 'uA', 'uUnlit']) this.u[n] = gl.getUniformLocation(p, n);
@@ -136,7 +151,16 @@ void main(){ float l = max(dot(normalize(vN), uL), 0.0);
     M4.persp(this.proj, 1.0, this.canvas.width / this.canvas.height, 0.5, 400);
     M4.lookAt(this.view, eye, target, [0, 1, 0]);
     M4.mul(this.vp, this.proj, this.view);
-    gl.clearColor(fog[0], fog[1], fog[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clearColor(fog[0], fog[1], fog[2], 1); gl.clearStencil(0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    { // fond de ciel
+      const a = this.a; gl.useProgram(this.skyProg); gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+      gl.disableVertexAttribArray(a.N); gl.disableVertexAttribArray(a.C);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.skyBuf); gl.enableVertexAttribArray(this.skyQ); gl.vertexAttribPointer(this.skyQ, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform3fv(this.skyU.uH, fog); gl.uniform3f(this.skyU.uZ, fog[0] * 0.5, fog[1] * 0.62, Math.min(1, fog[2] * 0.85 + 0.05));
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.useProgram(this.prog); gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enableVertexAttribArray(a.P); gl.enableVertexAttribArray(a.N); gl.enableVertexAttribArray(a.C);
+      this.cur = null; this.blend = false; gl.disable(gl.BLEND); this.shN = 0;
+    }
     gl.uniformMatrix4fv(u.uVP, false, this.vp); gl.uniform3fv(u.uCam, eye);
     gl.uniform3f(u.uL, 0.45, 0.8, 0.4); gl.uniform3fv(u.uAmb, amb); gl.uniform3fv(u.uSun, sun);
     gl.uniform3fv(u.uFog, fog); gl.uniform2f(u.uFogR, fogNear, fogFar);
@@ -153,6 +177,15 @@ void main(){ float l = max(dot(normalize(vN), uL), 0.0);
     gl.uniform3fv(u.uTint, tint || Engine.WHITE); gl.uniform1f(u.uFlash, flash || 0); gl.uniform1f(u.uA, alpha === undefined ? 1 : alpha); gl.uniform1f(u.uUnlit, unlit ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, mesh.n); this.calls++;
   }
+  // Ombres portées : chaque objet enregistré est redessiné aplati au sol, dans la direction du soleil.
+  shadow(mesh, M) { const i = this.shN++; if (!this.shM[i]) this.shM[i] = new Float32Array(16); this.shM[i].set(M); this.shMesh[i] = mesh; }
+  flushShadows(alpha) {
+    const gl = this.gl, T = Engine._s; if (!this.shN) return;
+    this.setBlend(true);
+    gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
+    for (let i = 0; i < this.shN; i++) { M4.mul(T, this.SH, this.shM[i]); this.draw(this.shMesh[i], T, Engine.BLACK, 0, alpha, true); }
+    gl.disable(gl.STENCIL_TEST); this.shN = 0;
+  }
   // Projette un point du monde vers l'écran (pixels CSS). Renvoie null s'il est derrière la caméra.
   project(x, y, z) {
     const m = this.vp, w = m[3] * x + m[7] * y + m[11] * z + m[15];
@@ -161,4 +194,4 @@ void main(){ float l = max(dot(normalize(vN), uL), 0.0);
     return [((m[0] * x + m[4] * y + m[8] * z + m[12]) / w * 0.5 + 0.5) * c.clientWidth, (1 - ((m[1] * x + m[5] * y + m[9] * z + m[13]) / w * 0.5 + 0.5)) * c.clientHeight, w];
   }
 }
-Engine.WHITE = [1, 1, 1];
+Engine.WHITE = [1, 1, 1]; Engine.BLACK = [0, 0, 0]; Engine._s = new Float32Array(16);

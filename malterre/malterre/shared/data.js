@@ -1,16 +1,17 @@
 /* Malterre — données de jeu partagées entre le serveur et le client. */
 (function (root) {
   const DATA = {
-    VERSION: '0.7.0',
+    VERSION: '0.8.0',
     WORLD: { radius: 430, fortRing: 335, slots: 8, tier1: 240, tier2: 115, view: 100 },
     // Réglages modifiables depuis la page admin (durées en secondes).
     CONFIG: {
-      respawnMob: 90, respawnElite: 1200, respawnBoss: 14400,
+      respawnMob: 90, respawnElite: 600, respawnBoss: 900,
       regenNode: 20, minionRevive: 60, playerRespawn: 6,
-      xpMult: 1, lootMult: 1, offlineRate: 0.5, offlineMaxH: 12,
+      xpMult: 0.5, lootMult: 1, offlineRate: 0.5, offlineMaxH: 12,
       raidLoot: 0.25, raidShieldH: 4, newShieldH: 4, raidDown: 1800, lootTime: 8,
-      relicMult: 1, refund: 0.5, villageMax: 3, villageIncome: 1, villageShieldMin: 10, captureTime: 6,
+      relicMult: 1, refund: 0.5, villageMax: 99, villageIncome: 1, villageShieldMin: 10, captureTime: 6,
     },
+    CONFIG_VERSION: 2,
     CONFIG_LABELS: {
       respawnMob: 'Réapparition des mobs (s)', respawnElite: 'Réapparition des élites (s)',
       respawnBoss: 'Réapparition du boss (s)', regenNode: 'Régénération des gisements (s par unité)',
@@ -160,6 +161,12 @@
       hellspider: { name: 'Veuve des cendres', model: 'spider', scale: 1.6, tier: 5, hp: 700, dmg: 42, speed: 8, range: 2.6, aggro: 14, cd: 1.1, xp: 190, spec: [40, 70], rad: 1.6, relic: 0.02 },
       emberent: { name: 'Ent calciné', model: 'treant', scale: 2.1, tier: 5, hp: 1300, dmg: 50, speed: 4.8, range: 3.2, aggro: 12, cd: 1.8, xp: 280, wood: [80, 130], rad: 1.6, relic: 0.03 },
       drake: { name: 'Drake', model: 'drake', scale: 1.3, tier: 5, hp: 1100, dmg: 60, speed: 8, range: 3, aggro: 16, cd: 1.4, xp: 320, gold: [50, 90], spec: [20, 35], rad: 1.5, relic: 0.05 },
+      frostknight: { name: 'Chevalier de givre', model: 'knight', scale: 1.4, tint: [0.7, 1.0, 1.6], tier: 6, hp: 2600, dmg: 95, speed: 7, range: 3, aggro: 16, cd: 1.3, xp: 600, gold: [90, 150], spec: [30, 50], rad: 1.2, relic: 0.04 },
+      icegolem: { name: 'Golem de glace', model: 'golem', scale: 2.3, tint: [0.8, 1.1, 1.5], tier: 6, hp: 4200, dmg: 110, speed: 4.6, range: 3.6, aggro: 13, cd: 1.9, xp: 800, stone: [200, 300], rad: 2, relic: 0.04 },
+      yeti: { name: 'Yéti', model: 'troll', scale: 1.25, tint: [1.3, 1.35, 1.5], tier: 6, hp: 3400, dmg: 105, speed: 6.2, range: 3.4, aggro: 15, cd: 1.7, xp: 750, spec: [100, 160], rad: 1.8, relic: 0.04 },
+      frostwyrm: { name: 'Wyrm des glaces', model: 'drake', scale: 1.9, tint: [0.5, 1.0, 1.8], tier: 6, hp: 3600, dmg: 125, speed: 8.2, range: 3.4, aggro: 17, cd: 1.4, xp: 900, gold: [130, 200], rad: 2, relic: 0.06 },
+      icent: { name: 'Ent givré', model: 'treant', scale: 2.4, tint: [0.8, 1.1, 1.5], tier: 6, hp: 3800, dmg: 100, speed: 4.8, range: 3.4, aggro: 12, cd: 1.8, xp: 780, wood: [200, 300], rad: 1.8, relic: 0.04 },
+      titan: { name: 'Titan de glace', model: 'guardian', scale: 1.5, tint: [0.6, 1.0, 1.7], tier: 7, hp: 48000, dmg: 230, speed: 5, range: 7, aggro: 28, cd: 2.3, xp: 9000, gold: [1200, 1600], spec: [900, 1200], wood: [900, 1200], stone: [900, 1200], rad: 5, boss: true, relic: 1, item: 'core' },
       dragon: { name: 'Dragon ancien', model: 'drake', scale: 3.6, tier: 6, hp: 16000, dmg: 110, speed: 5.5, range: 6, aggro: 26, cd: 2.2, xp: 3000, gold: [400, 600], spec: [300, 400], wood: [300, 400], stone: [300, 400], rad: 4, boss: true, relic: 1, item: 'scale' },
     },
     LOOT_KEYS: ['gold', 'spec', 'wood', 'stone'],
@@ -177,17 +184,29 @@
       walls: { name: 'Murailles', icon: '🧱', max: 5, cost: { stone: 250, wood: 100 }, items: [{}, {}, { shard: 1 }, { shard: 2 }, { shard: 3, scale: 1 }], desc: 'Garnison +15 % par niveau, et les pillards volent 8 % de moins par niveau.' },
       moat: { name: 'Douves', icon: '🌊', max: 3, cost: { stone: 150, gold: 120 }, items: [{}, { shard: 1 }, { shard: 2 }], desc: 'Un pillage prend 3 secondes de plus par niveau.' },
       stable: { name: 'Écurie', icon: '🐎', max: 3, cost: { wood: 200, stone: 120, gold: 100 }, items: [{ shard: 1 }, { shard: 2 }, { shard: 3, scale: 1 }], desc: 'Donne une monture au héros : +20 % de vitesse par niveau hors combat.' },
-      roost: { name: 'Aire du dragon', icon: '🐉', max: 1, cost: { wood: 800, stone: 800, gold: 600, spec: 400 }, items: [{ heart: 1 }], desc: 'Un dragon t\'emmène aux Terres brûlées, une contrée lointaine aux ennemis redoutables.' },
+      roost: { name: 'Aire du dragon', icon: '🐉', max: 2, cost: { wood: 800, stone: 800, gold: 600, spec: 400 }, items: [{ heart: 1 }, { scale: 1 }], desc: 'Niveau 1 : vol vers les Terres brûlées. Niveau 2 : vol vers les Cimes gelées, la contrée la plus dangereuse.' },
+      blessing: { name: 'Sanctuaire du titan', icon: '🏔️', max: 3, cost: { gold: 800, spec: 600, stone: 600 }, items: [{ core: 1 }, { core: 1 }, { core: 2 }], desc: '+15 % de vie et de dégâts du héros par niveau.' },
     },
     // Trophées : ne s'obtiennent que sur les boss, ne se pillent pas et ne comptent pas dans le stock.
     ITEMS: {
       heart: { name: 'Cœur du Gardien', icon: '💗', from: 'Gardien de Malterre (centre de la carte)' },
       shard: { name: 'Éclat d\'abîme', icon: '💠', from: 'boss du donjon (tous les 5 étages)' },
       scale: { name: 'Écaille de dragon', icon: '🐲', from: 'Dragon ancien (Terres brûlées)' },
+      core: { name: 'Noyau de titan', icon: '❄️', from: 'Titan de glace (Cimes gelées)' },
     },
     MOUNTS: { lich: 'bonehorse', goblin: 'wolf', demon: 'hound', druid: 'bear', dwarf: 'boar' },
     // Seconde contrée, accessible à dos de dragon.
-    LAND2: { x: 0, z: 2600, r: 170 },
+    // Contrées lointaines, accessibles à dos de dragon. need = niveau de l'aire du dragon requis.
+    LANDS: [
+      { key: 'burn', name: 'Terres brûlées', sub: 'Le domaine du Dragon ancien', x: 0, z: 2600, r: 170, need: 1, rich: 6, boss: 'dragon',
+        mobs: [['ashknight', 10, 2], ['lavagolem', 9, 1], ['hellspider', 9, 2], ['emberent', 8, 1], ['drake', 9, 1]], nodes: { tree: 34, rock: 28, vein: 30, remains: 30 },
+        ground: [0.3, 0.19, 0.17], edge: [0.2, 0.14, 0.14], vein: [1.6, 0.5, 0.1], prop: [0.16, 0.13, 0.14], sea: [0.25, 0.07, 0.04], glow: [2.2, 0.8, 0.2], map: '#4a2018',
+        sky: { fog: [0.32, 0.1, 0.06], amb: [0.5, 0.36, 0.32], sun: [0.6, 0.3, 0.2], near: 48, far: 104 } },
+      { key: 'frost', name: 'Cimes gelées', sub: 'Le royaume du Titan de glace', x: 0, z: 5200, r: 190, need: 2, rich: 10, boss: 'titan',
+        mobs: [['frostknight', 11, 2], ['icegolem', 10, 1], ['yeti', 10, 1], ['frostwyrm', 9, 1], ['icent', 9, 1]], nodes: { tree: 36, rock: 32, vein: 34, remains: 34 },
+        ground: [0.56, 0.64, 0.76], edge: [0.4, 0.5, 0.66], vein: [0.35, 0.75, 1.5], prop: [0.6, 0.75, 0.9], sea: [0.08, 0.16, 0.3], glow: [0.6, 1.4, 2.4], map: '#9fb9d6',
+        sky: { fog: [0.62, 0.74, 0.88], amb: [0.5, 0.55, 0.66], sun: [0.46, 0.5, 0.58], near: 55, far: 112 } },
+    ],
     // Fabrications de l'atelier : améliorations permanentes par paliers (palier maximum = niveau de l'atelier).
     CRAFTS: {
       weapon: { name: 'Arme du seigneur', icon: '🗡️', who: 'hero', desc: '+12 % de dégâts du héros par palier', cost: { stone: 40, gold: 25, spec: 20 } },

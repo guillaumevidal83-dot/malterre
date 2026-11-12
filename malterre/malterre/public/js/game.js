@@ -10,7 +10,7 @@
 
   const cv = $('gl'), ov = $('ov'), octx = ov.getContext('2d');
   let eng;
-  try { eng = new Engine(cv); } catch (e) { $('loginErr').textContent = 'Ton navigateur ne gère pas la 3D (WebGL).'; $('loginBtn').disabled = true; return; }
+  try { eng = new Engine(cv); } catch (e) { console.error(e); $('loginErr').textContent = 'Ton navigateur ne gère pas la 3D (WebGL).'; $('loginBtn').disabled = true; return; }
   Models.init(eng);
 
   const S = {
@@ -23,17 +23,18 @@
   };
   const ICON = {}; for (const c in D.CLASSES) ICON[c] = D.CLASSES[c].icon;
   const BICON = { throne: '👑', storage: '📦', barracks: '⚰️', altar: '🔮', workshop: '⚒️' }; for (const b in D.BUILDINGS) if (D.BUILDINGS[b].icon) BICON[b] = D.BUILDINGS[b].icon;
-  const L2 = D.LAND2, inL2 = () => Math.hypot(S.x - L2.x, S.z - L2.z) < L2.r + 30;
+  const curLand = () => { for (let i = 0; i < D.LANDS.length; i++) { const L = D.LANDS[i]; if (Math.hypot(S.x - L.x, S.z - L.z) < L.r + 30) return L; } return null; };
+  const inL2 = () => !!curLand();
   const have = r => (r in D.ITEMS ? (S.me.items || {})[r] : S.me.res[r]) || 0;
   const anyIcon = r => r in D.ITEMS ? D.ITEMS[r].icon : resIcon(r);
   const MICON = { skeleton: '💀', zombie: '🧟', goblin: '👺', brute: '👹' };
-  const ZONES = ['', 'Terres calmes', 'Bois sombres', 'Terres maudites', 'Terres brûlées'];
-  const ZSUB = ['', 'Les bêtes y sont faibles', 'Araignées et orcs rôdent', 'Seuls les plus forts en reviennent', 'Le domaine du Dragon ancien'];
+  const ZONES = ['', 'Terres calmes', 'Bois sombres', 'Terres maudites', ...D.LANDS.map(L => L.name)];
+  const ZSUB = ['', 'Les bêtes y sont faibles', 'Araignées et orcs rôdent', 'Seuls les plus forts en reviennent', ...D.LANDS.map(L => L.sub)];
   const SKY = [null,
     { fog: [0.62, 0.75, 0.84], amb: [0.56, 0.57, 0.6], sun: [0.68, 0.64, 0.56], near: 70, far: 122 },
     { fog: [0.3, 0.4, 0.38], amb: [0.44, 0.48, 0.47], sun: [0.42, 0.44, 0.38], near: 55, far: 108 },
     { fog: [0.2, 0.14, 0.2], amb: [0.42, 0.36, 0.44], sun: [0.4, 0.27, 0.27], near: 42, far: 96 },
-    { fog: [0.32, 0.1, 0.06], amb: [0.5, 0.36, 0.32], sun: [0.6, 0.3, 0.2], near: 48, far: 104 }];
+    ...D.LANDS.map(L => L.sky)];
   const sky = { fog: [0.62, 0.75, 0.84], amb: [0.56, 0.57, 0.6], sun: [0.68, 0.64, 0.56], near: 70, far: 122 };
   const slotColor = s => hex(D.COLORS[s % D.COLORS.length]);
 
@@ -267,7 +268,10 @@
     send({ t: 'sk', i });
   }
   for (let i = 0; i < 3; i++) $('sk' + i).addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); skill(i); });
-  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.btnMode === 'dg') send({ t: 'dgenter' }); else if (S.btnMode === 'fly') send({ t: 'fly' }); else if (S.lootEnd <= S.time) send({ t: 'loot' }); });
+  $('btnLoot').addEventListener('click', () => { Sound.init(); if (S.btnMode === 'dg') send({ t: 'dgenter' }); else if (S.btnMode === 'fly') {
+      if (curLand() || (S.me.b.roost || 0) < 2) send({ t: 'fly', to: 0 });
+      else { modal('<div style="font-size:48px">🐉</div><h2>Où voler ?</h2>' + D.LANDS.map((L, i) => '<button class="btn gold wide" data-fly="' + i + '">' + esc(L.name) + '</button><p>' + esc(L.sub) + '</p>').join('') + '<button class="btn wide" id="modalOk">Rester ici</button>'); for (const b of $('modalBox').querySelectorAll('[data-fly]')) b.onclick = () => { send({ t: 'fly', to: +b.dataset.fly }); $('modal').hidden = true; }; }
+    } else if (S.lootEnd <= S.time) send({ t: 'loot' }); });
   $('btnOrder').addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); if (!S.dead) send({ t: 'order' }); });
   $('btnMenu').addEventListener('click', () => { Sound.init(); toggleSheet(); });
   $('sheetClose').addEventListener('click', () => toggleSheet());
@@ -320,7 +324,7 @@
     if (S.tab === 'fort') {
       const mf = S.forts[me.slot], shLeft = mf && mf.shEnd > S.time ? mf.shEnd - S.time : 0;
       h += '<div class="card"><div class="big">' + (shLeft ? '🛡️' : '⚠️') + '</div><div class="mid"><h3>' + (shLeft ? 'Forteresse protégée' : 'Forteresse exposée') + '</h3><p>' + (shLeft ? 'Personne ne peut te piller pendant encore ' + fmtDur(shLeft) + '. Si tu pilles quelqu\'un, ta protection tombe.' : 'Un autre seigneur peut voler ' + Math.round(S.cfg.raidLoot * 100) + ' % de ton stock. Laisse des serviteurs en Garde pour la défendre.') + '</p></div></div>';
-      { const inc = me.vinc || {}, ks = Object.keys(inc); h += '<div class="card"><div class="big">🚩</div><div class="mid"><h3>Villages<em>' + (me.vill || 0) + ' / ' + S.cfg.villageMax + '</em></h3><p>' + (ks.length ? 'Revenu par minute : ' + ks.map(r => '+' + Math.round(inc[r]) + ' ' + resIcon(r)).join('  ') : 'Élimine les gardes d\'un village, puis tiens le bouton Conquérir près du puits. Chaque village rapporte des ressources en continu, même hors ligne.') + '</p></div></div>'; }
+      { const inc = me.vinc || {}, ks = Object.keys(inc); h += '<div class="card"><div class="big">🚩</div><div class="mid"><h3>Villages<em>' + (me.vill || 0) + (S.cfg.villageMax < 50 ? ' / ' + S.cfg.villageMax : '') + '</em></h3><p>' + (ks.length ? 'Revenu par minute : ' + ks.map(r => '+' + Math.round(inc[r]) + ' ' + resIcon(r)).join('  ') : 'Élimine les gardes d\'un village, puis tiens le bouton Conquérir près du puits. Chaque village rapporte des ressources en continu, même hors ligne.') + '</p></div></div>'; }
       { const it = me.items || {}; h += '<div class="card"><div class="big">🏆</div><div class="mid"><h3>Trophées de boss</h3><p>' + Object.keys(D.ITEMS).map(k => D.ITEMS[k].icon + ' ' + (it[k] || 0) + ' ' + D.ITEMS[k].name).join(' · ') + '</p><p>Ils servent aux améliorations les plus puissantes. On ne les trouve que sur : ' + Object.keys(D.ITEMS).map(k => D.ITEMS[k].from).join(' ; ') + '.</p></div></div>'; }
       h += '<div class="note">Stock maximum : ' + me.cap + ' par ressource. Tes serviteurs rapportent les ressources, les monstres donnent de l\'or et ' + 'la ressource de ta classe (' + cls.spec.toLowerCase() + '). Ton héros récolte aussi : frappe un arbre, un rocher ou un filon avec le bouton d\'attaque.</div>';
       for (const b in D.BUILDINGS) {
@@ -393,7 +397,7 @@
       h += '<div class="row"><label>🔊 Effets sonores</label><input type="range" min="0" max="100" value="' + Math.round(Sound.set.sfx * 100) + '" data-set="sfx"></div>';
       h += '<div class="row"><label>📳 Vibrations</label><input type="checkbox" data-set="vib"' + (Sound.set.vib ? ' checked' : '') + (Sound.canVibrate() ? '' : ' disabled') + '></div>';
       if (!Sound.canVibrate()) h += '<div class="note">Ce navigateur ne permet pas les vibrations (c\'est le cas sur iPhone). Les secousses d\'écran restent actives.</div>';
-      h += '<div class="row"><label>🖼️ Qualité graphique</label><select data-set="quality"><option value="low"' + (S.quality === 'low' ? ' selected' : '') + '>Rapide</option><option value="med"' + (S.quality === 'med' ? ' selected' : '') + '>Équilibrée</option><option value="high"' + (S.quality === 'high' ? ' selected' : '') + '>Fine</option></select></div>';
+      h += '<div class="row"><label>🖼️ Qualité graphique</label><select data-set="quality"><option value="low"' + (S.quality === 'low' ? ' selected' : '') + '>Rapide (sans ombres)</option><option value="med"' + (S.quality === 'med' ? ' selected' : '') + '>Équilibrée</option><option value="high"' + (S.quality === 'high' ? ' selected' : '') + '>Fine</option></select></div>';
       h += '<div class="note">Glisse sur l\'écran pour tourner la caméra, pince pour zoomer. Sur ordinateur : ZQSD ou flèches, Espace pour attaquer, 1-2-3 pour les compétences, E pour ce menu.</div>';
       h += '<button class="btn red wide" data-act="logout">Changer de seigneur</button><div class="note" style="text-align:center;margin-top:10px">Malterre v' + D.VERSION + '</div>';
     }
@@ -453,7 +457,7 @@
       if (Math.abs(d - 24) < 1.1 && Math.abs(Math.atan2(l[0], l[1])) > 0.2) { const nd = d < 24 ? 22.9 : 25.1, w = fortWorld(f, l[0] / d * nd, l[1] / d * nd); S.x = w[0]; S.z = w[1]; }
     }
     for (const v of S.villages) { if (Math.abs(v.x - S.x) > 16 || Math.abs(v.z - S.z) > 16) continue; pushOut(v.x, v.z, 2.3); const n = v.rich > 1 ? 7 : 5; for (let i = 0; i < n; i++) { const a = i / n * TAU + 0.3; pushOut(v.x + Math.sin(a) * 10.5, v.z + Math.cos(a) * 10.5, 3); } }
-    if (inL2()) { const dx = S.x - L2.x, dz = S.z - L2.z, d = Math.hypot(dx, dz), lim = L2.r - 4; if (d > lim) { S.x = L2.x + dx / d * lim; S.z = L2.z + dz / d * lim; } return; }
+    { const L2 = curLand(); if (L2) { const dx = S.x - L2.x, dz = S.z - L2.z, d = Math.hypot(dx, dz), lim = L2.r - 4; if (d > lim) { S.x = L2.x + dx / d * lim; S.z = L2.z + dz / d * lim; } return; } }
     const r = Math.hypot(S.x, S.z); if (r > WR - 4) { S.x *= (WR - 4) / r; S.z *= (WR - 4) / r; }
   }
 
@@ -498,7 +502,7 @@
     if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 2.2);
 
     // Zone et ambiance.
-    const r = Math.hypot(S.x, S.z), tier = S.dg ? 3 : inL2() ? 4 : r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
+    const r = Math.hypot(S.x, S.z), tier = S.dg ? 3 : curLand() ? 4 + D.LANDS.indexOf(curLand()) : r > D.WORLD.tier1 ? 1 : r > D.WORLD.tier2 ? 2 : 3;
     let zk = 'z' + tier, title = ZONES[tier], sub = ZSUB[tier];
     for (const f of S.forts) if (Math.hypot(f.x - S.x, f.z - S.z) < 25) { const shd = f.shEnd > S.time; zk = 'f' + f.s + (f.o || '') + (shd ? 's' : ''); title = f.o ? (f.s === me.slot ? 'Ta forteresse' : 'Royaume de ' + f.o) : 'Terre sans maître'; sub = f.o ? D.CLASSES[f.c].name + ' niv. ' + f.l + (shd ? ' · 🛡️ protégé encore ' + fmtDur(f.shEnd - S.time) : f.s === me.slot ? ' · ⚠️ exposée aux raids' : ' · ⚔️ pillage possible') : 'Un royaume peut être fondé ici'; }
     if (!S.dg && !inL2() && r < 45) { const dead = S.bossEnd > S.time; zk = 'boss' + (dead ? Math.ceil((S.bossEnd - S.time) / 300) : 'a'); title = 'Antre du Gardien'; sub = dead ? 'Le Gardien reviendra dans ' + fmtDur(S.bossEnd - S.time) : 'Le Gardien de Malterre veille'; }
@@ -517,7 +521,7 @@
     let dgBtn = false;
     if (!S.dead && !S.dg && !canLoot) for (const f of S.forts) { if (!f.o) continue; const p = fortWorld(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); if (Math.hypot(p[0] - S.x, p[1] - S.z) < 6.5) { dgBtn = true; canLoot = true; } }
     let flyBtn = false;
-    if (!S.dead && !S.dg && !canLoot) { const mf = S.forts[me.slot], rp = fortWorld(mf, D.PLOTS.roost[0], D.PLOTS.roost[1]); if ((me.b.roost > 0 && Math.hypot(rp[0] - S.x, rp[1] - S.z) < 10) || Math.hypot(S.x - L2.x, S.z - (L2.z - L2.r + 14)) < 12) { flyBtn = true; canLoot = true; } }
+    if (!S.dead && !S.dg && !canLoot) { const mf = S.forts[me.slot], rp = fortWorld(mf, D.PLOTS.roost[0], D.PLOTS.roost[1]); const cl = curLand(); if ((me.b.roost > 0 && Math.hypot(rp[0] - S.x, rp[1] - S.z) < 10) || (cl && Math.hypot(S.x - cl.x, S.z - (cl.z - cl.r + 14)) < 12)) { flyBtn = true; canLoot = true; } }
     S.btnMode = flyBtn ? 'fly' : dgBtn ? 'dg' : cap ? 'cap' : 'loot';
     const bl = $('btnLoot'), busy = S.lootEnd > S.time && !dgBtn && !flyBtn;
     if (bl.hidden === canLoot) bl.hidden = !canLoot;
@@ -542,8 +546,8 @@
       else if (p.k === 'armL') ang = -sw * 0.5 + (mdl.pose === 'zombie' ? -1.35 : 0) - (mdl.pose === 'zombie' ? Math.sin(atk * Math.PI) * 0.5 : 0);
       else if (p.k === 'armR') ang = sw * 0.5 + (mdl.pose === 'zombie' ? -1.35 : mdl.kind === 'float' ? -0.25 : 0) - Math.sin(atk * Math.PI) * 1.9 + (work ? -1.0 + Math.sin(t * 9 + ph) * 0.8 : 0);
       else if (p.k === 'spA') ang = Math.sin(t * 14 + ph) * (walk ? 0.22 : 0.04); else if (p.k === 'spB') ang = -Math.sin(t * 14 + ph) * (walk ? 0.22 : 0.04);
-      if (p.k === 'body') eng.draw(p.m, M, tint, flash);
-      else { M4.pivot(PM, p.p[0], p.p[1], p.p[2], p.ax || 'x', ang); M4.mul(PM, M, PM); eng.draw(p.m, PM, tint, flash); }
+      if (p.k === 'body') { eng.draw(p.m, M, tint, flash); if (S.shadows) eng.shadow(p.m, M); }
+      else { M4.pivot(PM, p.p[0], p.p[1], p.p[2], p.ax || 'x', ang); M4.mul(PM, M, PM); eng.draw(p.m, PM, tint, flash); if (S.shadows) eng.shadow(p.m, PM); }
     }
   }
   const MT = M4.create();
@@ -555,7 +559,7 @@
     const ro = e.k === 0 ? S.roster.get(e.id) : null, mounted = !!ro && ro.st > 0 && walk && t - e.atkT > 3 && (e.id !== S.id || S.mounted);
     const bob = mdl.kind === 'float' ? 0.14 + Math.sin(t * 2.2 + e.ph) * 0.09 : walk ? Math.abs(sw) * 0.06 : 0;
     const lunge = mdl.kind === 'quad' || mdl.kind === 'spider' ? Math.sin(atk * Math.PI) * 0.7 : 0;
-    let tint = Engine.WHITE;
+    let tint = e.k === 2 && D.MOBS[e.t].tint ? D.MOBS[e.t].tint : Engine.WHITE;
     if (e.fl & 1) tint = [0.6, 0.85, 1.4]; else if (e.fl & 8) tint = [1.3, 1.25, 0.6]; else if (e.fl & 2) tint = [1.35, 1.0, 0.75];
     const flash = Math.max(0, e.flash) * 0.55;
     if (mounted) {
@@ -572,13 +576,14 @@
   }
 
   function render() {
-    const scale = S.quality === 'low' ? 1 : Math.min(devicePixelRatio || 1, S.quality === 'high' ? 2 : 1.5);
+    const scale = S.quality === 'low' ? 1 : Math.min(devicePixelRatio || 1, S.quality === 'high' ? 2.5 : 1.75);
+    S.shadows = S.quality !== 'low'; const tier = S.tier;
     eng.resize(scale);
     const sh = S.shake * S.shake, sx = (Math.random() - 0.5) * sh, sy = (Math.random() - 0.5) * sh;
     const cp = Math.cos(S.camPitch), eye = [S.x - Math.sin(S.camYaw) * cp * S.camDist + sx, 2 + Math.sin(S.camPitch) * S.camDist + sy, S.z - Math.cos(S.camYaw) * cp * S.camDist];
     eng.begin(eye, [S.x + sx, 2.1 + sy, S.z], sky.fog, sky.near, sky.far, sky.amb, sky.sun);
     if (S.dg) { M4.trs(MM, S.dg.cx, 0, S.dg.cz, 0, 1, 1, 1); eng.draw(Models.dungeonFloor(), MM); }
-    else if (inL2()) { M4.trs(MM, L2.x, 0, L2.z, 0, 1, 1, 1); eng.draw(Models.terrain2(), MM); }
+    else if (curLand()) { const L2 = curLand(); M4.trs(MM, L2.x, 0, L2.z, 0, 1, 1, 1); eng.draw(Models.terrainLand(D.LANDS.indexOf(L2)), MM); }
     else { M4.trs(MM, 0, 0, 0, 0, 1, 1, 1); eng.draw(Models.terrain(), MM); }
     const far = sky.far + 12;
 
@@ -587,19 +592,20 @@
       M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1);
       if (!f.o) { eng.draw(Models.emptyFort(), MM); continue; }
       { const pp = fortWorld(f, D.DUNGEON.portal[0], D.DUNGEON.portal[1]); M4.trs(PM, pp[0], 0, pp[1], f.rot + 0.4, 1, 1, 1); eng.draw(Models.portal(), PM); M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1); }
-      { const wl = f.b.walls || 0; if (wl) M4.trs(MM, f.x, 0, f.z, f.rot, 1 + 0.02 * wl, 1 + 0.14 * wl, 1 + 0.02 * wl); eng.draw(Models.wall(f.c), MM); M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1); }
+      { const wl = f.b.walls || 0; if (wl) M4.trs(MM, f.x, 0, f.z, f.rot, 1 + 0.02 * wl, 1 + 0.14 * wl, 1 + 0.02 * wl); eng.draw(Models.wall(f.c), MM); if (S.shadows) eng.shadow(Models.wall(f.c), MM); M4.trs(MM, f.x, 0, f.z, f.rot, 1, 1, 1); eng.draw(Models.wallGround(f.c), MM); }
       eng.draw(Models.banner(), MM, slotColor(f.s));
-      for (const b in D.PLOTS) { if (!f.b[b] && D.BUILDINGS[b].name) continue; const p = fortWorld(f, D.PLOTS[b][0], D.PLOTS[b][1]); M4.trs(PM, p[0], 0, p[1], f.rot, 1, 1, 1); eng.draw(Models.building(f.c, b, f.b[b] || 0), PM); }
+      for (const b in D.PLOTS) { if (!f.b[b] && D.BUILDINGS[b].name) continue; const p = fortWorld(f, D.PLOTS[b][0], D.PLOTS[b][1]); M4.trs(PM, p[0], 0, p[1], f.rot, 1, 1, 1); eng.draw(Models.building(f.c, b, f.b[b] || 0), PM); if (S.shadows && f.b[b]) eng.shadow(Models.building(f.c, b, f.b[b]), PM); }
     }
     for (const v of S.villages) {
       if (Math.hypot(v.x - S.x, v.z - S.z) > far + 16) continue;
-      M4.trs(MM, v.x, 0, v.z, 0, 1, 1, 1); eng.draw(Models.village(v.rich), MM); eng.draw(Models.villageFlag(), MM, v.o ? slotColor(v.s) : [0.75, 0.75, 0.75]);
+      M4.trs(MM, v.x, 0, v.z, 0, 1, 1, 1); eng.draw(Models.villageGround(), MM); eng.draw(Models.village(v.rich), MM); if (S.shadows) eng.shadow(Models.village(v.rich), MM); eng.draw(Models.villageFlag(), MM, v.o ? slotColor(v.s) : [0.75, 0.75, 0.75]);
     }
     for (const n of S.nodes) {
       const dx = n.x - S.x, dz = n.z - S.z; if (dx * dx + dz * dz > far * far) continue;
       const tree = n.type === 'tree', s = n.s * (n.vis === 0 ? (tree ? 1 : 0.4) : tree ? 0.75 + 0.1 * n.vis : 0.55 + 0.15 * n.vis) * (tree && n.rich >= 2 ? 1.25 : 1) * (!tree && n.rich >= 2 ? 1.15 : 1);
       M4.trs(MM, n.x, 0, n.z, n.rot, s, s, s);
       eng.draw(Models.node(n.type, n.rich, n.variant, n.vis), MM, n.vis === 0 && !tree ? [0.55, 0.55, 0.55] : null);
+      if (S.shadows && n.type !== 'remains' && dx * dx + dz * dz < 70 * 70) eng.shadow(Models.node(n.type, n.rich, n.variant, n.vis), MM);
     }
     const shadows = [];
     let target = null, tbest = 1e9; const range = S.me ? D.CLASSES[S.me.cls].range + 2 : 0;
@@ -613,10 +619,11 @@
     for (const p of S.parts) { const s = p.size * Math.min(1, p.life / p.max * 2); M4.trs(MM, p.x, p.y, p.z, p.life * 5, s, s, s); eng.draw(cube, MM, p.col, 0, 1, true); }
     for (const p of S.projs) { const t = p.t / p.dur; M4.trs(MM, lerp(p.x0, p.x1, t), lerp(p.y0, p.y1, t) + Math.sin(t * Math.PI) * 0.6, lerp(p.z0, p.z1, t), 0, p.size, p.size, p.size); eng.draw(orb, MM, p.col, 0, 1, true); }
     // Passes transparentes : ombres, cercles de couleur, anneaux d'effet.
+    if (S.shadows) eng.flushShadows(tier === 3 || S.dg ? 0.22 : 0.3);
     eng.setBlend(true);
     const disc = Models.disc(), rg = Models.ring();
     for (let i = 0; i < shadows.length; i += 4) {
-      M4.trs(MM, shadows[i], 0.06, shadows[i + 1], 0, shadows[i + 2], 1, shadows[i + 2]); eng.draw(disc, MM, [0, 0, 0], 0, 0.3, true);
+      if (!S.shadows) { M4.trs(MM, shadows[i], 0.06, shadows[i + 1], 0, shadows[i + 2], 1, shadows[i + 2]); eng.draw(disc, MM, [0, 0, 0], 0, 0.3, true); }
       if (shadows[i + 3] >= 0) { const r = shadows[i + 2] * 1.5; M4.trs(MM, shadows[i], 0.08, shadows[i + 1], 0, r, 1, r); eng.draw(rg, MM, slotColor(shadows[i + 3]), 0, 0.75, true); }
     }
     if (target && !S.dead) { const r = (target.k === 2 ? D.MOBS[target.t].rad : 0.7) * 1.5 + 0.3 + Math.sin(S.time * 6) * 0.08; M4.trs(MM, target.x, 0.1, target.z, S.time, r, 1, r); eng.draw(rg, MM, [1.6, 0.25, 0.2], 0, 0.9, true); }
@@ -673,8 +680,8 @@
     const c = mctx, W = 220, R = 104, k = R / (WR + 5), cx = W / 2, cy = W / 2, P = (x, z) => [cx - x * k, cy - z * k];
     c.clearRect(0, 0, W, W);
     if (inL2() && !S.dg) {
-      const kk = R / (L2.r + 6), Q = (x, z) => [cx - (x - L2.x) * kk, cy - (z - L2.z) * kk];
-      c.fillStyle = '#4a2018'; c.beginPath(); c.arc(cx, cy, L2.r * kk, 0, TAU); c.fill();
+      const L2 = curLand(), kk = R / (L2.r + 6), Q = (x, z) => [cx - (x - L2.x) * kk, cy - (z - L2.z) * kk];
+      c.fillStyle = L2.map; c.beginPath(); c.arc(cx, cy, L2.r * kk, 0, TAU); c.fill();
       const ld = Q(L2.x, L2.z - L2.r + 14); c.fillStyle = '#ffd34d'; c.beginPath(); c.arc(ld[0], ld[1], 6, 0, TAU); c.fill();
       for (const e of S.ents.values()) { if (e.id === S.id) continue; const q = Q(e.x, e.z); c.fillStyle = e.k === 2 ? (D.MOBS[e.t].boss ? '#ffb347' : '#ff4d40') : e.k === 0 ? '#fff' : '#9dffb4'; const sz = e.k === 2 && D.MOBS[e.t].boss ? 9 : 4; c.fillRect(q[0] - sz / 2, q[1] - sz / 2, sz, sz); }
       const q = Q(S.x, S.z); c.save(); c.translate(q[0], q[1]); c.rotate(-S.r); c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 7); c.lineTo(0, 3); c.lineTo(-6, 7); c.closePath(); c.stroke(); c.fill(); c.restore();

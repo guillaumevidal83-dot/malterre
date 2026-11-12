@@ -3,7 +3,9 @@
 const crypto = require('crypto');
 const D = require('../shared/data.js');
 
-const W = D.WORLD, TAU = Math.PI * 2, RAD = W.radius, L2 = D.LAND2;
+const W = D.WORLD, TAU = Math.PI * 2, RAD = W.radius, LANDS = D.LANDS;
+const landing = L => ({ x: L.x, z: L.z - L.r + 14 });
+const landAt = (x, z) => LANDS.find(L => Math.hypot(x - L.x, z - L.z) < L.r + 30) || null;
 const have = (rec, r) => (r in D.ITEMS ? (rec.items || {})[r] : rec.res[r]) || 0;
 const canPay = (rec, cost) => Object.keys(cost).every(r => have(rec, r) >= cost[r]);
 const pay = (rec, cost) => { for (const r in cost) { if (r in D.ITEMS) rec.items[r] -= cost[r]; else rec.res[r] -= cost[r]; } };
@@ -23,6 +25,10 @@ class Game {
   constructor(saved) {
     saved = saved || {};
     this.cfg = Object.assign({}, D.CONFIG, saved.cfg || {});
+    if (saved.cfg && (saved.cfgV || 1) < 2) { // nouveaux réglages de base, appliqués une fois aux mondes existants
+      this.cfg.respawnBoss = Math.min(this.cfg.respawnBoss, 900); this.cfg.respawnElite = Math.min(this.cfg.respawnElite, 600);
+      this.cfg.villageMax = 99; this.cfg.xpMult = this.cfg.xpMult * 0.5;
+    }
     this.players = saved.players || {};
     this.seed = saved.seed || 1337;
     this.created = saved.created || now();
@@ -82,12 +88,12 @@ class Game {
     scatter('tree', 130, W.tier2, W.tier1, 2); scatter('rock', 65, W.tier2, W.tier1, 2); scatter('vein', 30, W.tier2, W.tier1, 2); scatter('remains', 34, W.tier2, W.tier1, 2);
     scatter('tree', 45, 14, W.tier2, 3); scatter('rock', 22, 14, W.tier2, 3); scatter('vein', 22, 14, W.tier2, 4); scatter('remains', 22, 14, W.tier2, 4);
     if (saved.nodes && saved.v === 4) for (const id in saved.nodes) { const n = nodes[id]; if (n) { n.stock = saved.nodes[id][0]; n.ts = saved.nodes[id][1]; } }
-    { // Terres brûlées : gisements très riches, ajoutés en fin de liste pour ne pas décaler les autres.
-      let tries = 0, left = { tree: 34, rock: 28, vein: 30, remains: 30 };
-      for (const type in left) while (left[type] > 0 && tries++ < 8000) {
+    for (const L2 of LANDS) { // Contrées lointaines : gisements très riches, ajoutés en fin de liste pour ne pas décaler les autres.
+      let tries = 0; const left = Object.assign({}, L2.nodes), ld = landing(L2);
+      for (const type in left) while (left[type] > 0 && tries++ < 9000) {
         const a = R() * TAU, r = Math.sqrt(R()) * (L2.r - 8), x = L2.x + Math.sin(a) * r, z = L2.z + Math.cos(a) * r;
-        if (Math.hypot(x - L2.x, z - (L2.z - L2.r + 14)) < 22 || Math.hypot(x - L2.x, z - L2.z) < 26 || !nodes.every(n => (n.x - x) ** 2 + (n.z - z) ** 2 > 16)) continue;
-        add(type, x, z, 6); left[type]--;
+        if (Math.hypot(x - ld.x, z - ld.z) < 22 || Math.hypot(x - L2.x, z - L2.z) < 26 || !nodes.every(n => (n.x - x) ** 2 + (n.z - z) ** 2 > 16)) continue;
+        add(type, x, z, L2.rich); left[type]--;
       }
     }
     for (const n of nodes) n.vis = this.visOf(n);
@@ -118,17 +124,17 @@ class Game {
     packs('knight', 16, 2, 2, 24, W.tier2 - 4, 0); packs('troll', 10, 1, 1, 24, W.tier2 - 6, 0);
     sp('guardian', 0, 0);
     for (const v of this.villages) { const n = v.rich > 1 ? 6 : 4; for (let i = 0; i < n; i++) { const a = i / n * TAU; sp('militia', v.x + Math.sin(a) * 6, v.z + Math.cos(a) * 6, false, v); } sp('captain', v.x + 2, v.z + 2, false, v); }
-    { // Monstres des Terres brûlées.
-      const far = (x, z) => Math.hypot(x - L2.x, z - (L2.z - L2.r + 14)) > 38 && Math.hypot(x - L2.x, z - L2.z) > 34;
-      for (const [type, n, c] of [['ashknight', 10, 2], ['lavagolem', 9, 1], ['hellspider', 9, 2], ['emberent', 8, 1], ['drake', 9, 1]]) {
+    for (const L2 of LANDS) { // Monstres des contrées lointaines.
+      const ld = landing(L2), far = (x, z) => Math.hypot(x - ld.x, z - ld.z) > 38 && Math.hypot(x - L2.x, z - L2.z) > 36;
+      for (const [type, n, c] of L2.mobs) {
         let left = n, tries = 0;
-        while (left > 0 && tries++ < 3000) { const a = R() * TAU, r = Math.sqrt(R()) * (L2.r - 14), x = L2.x + Math.sin(a) * r, z = L2.z + Math.cos(a) * r; if (!far(x, z)) continue; for (let i = 0; i < c; i++) sp(type, x + (R() - 0.5) * 8, z + (R() - 0.5) * 8); left--; }
+        while (left > 0 && tries++ < 3000) { const a = R() * TAU, r = Math.sqrt(R()) * (L2.r - 14), x = L2.x + Math.sin(a) * r, z = L2.z + Math.cos(a) * r; if (!far(x, z)) continue; for (let k = 0; k < c; k++) sp(type, x + (R() - 0.5) * 8, z + (R() - 0.5) * 8); left--; }
       }
-      sp('dragon', L2.x, L2.z);
+      sp(L2.boss, L2.x, L2.z);
     }
     const t = now();
     for (const s of spawns) {
-      if (saved.v === 4 && saved.dead && saved.dead[s.id] > t) s.deadUntil = saved.dead[s.id]; else if (!(s.village && s.village.owner)) this.spawnMob(s);
+      if (saved.v === 4 && saved.dead && saved.dead[s.id] > t) { const d = D.MOBS[s.type]; s.deadUntil = Math.min(saved.dead[s.id], t + (d.boss ? this.cfg.respawnBoss : d.elite ? this.cfg.respawnElite : this.cfg.respawnMob) * 1000); } else if (!(s.village && s.village.owner)) this.spawnMob(s);
     }
     for (const v of this.villages) if (v.owner) this.spawnVillageGuards(v);
   }
@@ -185,8 +191,8 @@ class Game {
   stats(rec) {
     const c = rec.craft || {}, eq = rec.eq || {}, b = rec.b, has = id => eq.h === id || eq.m === id || eq.f === id, p = D.CLASSES[rec.cls].passive || {};
     return {
-      hp: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.armor || 0)) * (has('h_stone') ? 1.3 : 1),
-      dmg: (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.weapon || 0)) * (has('h_fury') ? 1.2 : 1) * (p.dmg || 1),
+      hp: (1 + 0.15 * (b.blessing || 0)) * (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.armor || 0)) * (has('h_stone') ? 1.3 : 1),
+      dmg: (1 + 0.15 * (b.blessing || 0)) * (1 + 0.1 * (b.altar || 0)) * (1 + 0.12 * (c.weapon || 0)) * (has('h_fury') ? 1.2 : 1) * (p.dmg || 1),
       speed: 1 + 0.04 * (c.boots || 0), mount: 1 + 0.2 * (b.stable || 0), cd: has('h_haste') ? 0.75 : 1, vamp: (has('h_vamp') ? 0.08 : 0) + (p.vamp || 0), regen: (has('f_regen') ? 3 : 1) * (p.regen || 1),
       mHp: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.marmor || 0)) * (has('m_iron') ? 1.4 : 1) * (p.mHp || 1),
       mDmg: (1 + 0.1 * (b.barracks || 0)) * (1 + 0.12 * (c.mweapon || 0)) * (has('m_venom') ? 1.3 : 1),
@@ -617,7 +623,7 @@ class Game {
       case 'order': this.onOrder(sess); break;
       case 'role2': this.onRole2(sess, String(msg.m), String(msg.r), msg.d > 0 ? 1 : -1); break;
       case 'ally': this.onAlly(sess, String(msg.n)); break;
-      case 'fly': this.onFly(sess); break;
+      case 'fly': this.onFly(sess, msg.to | 0); break;
       case 'dgenter': this.dgEnter(sess); break;
       case 'dgnext': this.dgNext(sess); break;
       case 'dgexit': this.dgExit(sess, true); break;
@@ -734,7 +740,7 @@ class Game {
     if (d > max) { x = e.x + dx / d * max; z = e.z + dz / d * max; fix = true; }
     const rr = Math.hypot(x, z);
     if (sess.dg) { const g = sess.dg, dd = Math.hypot(x - g.cx, z - g.cz), lim = D.DUNGEON.radius - 1; if (dd > lim) { x = g.cx + (x - g.cx) / dd * lim; z = g.cz + (z - g.cz) / dd * lim; fix = true; } }
-    else if (Math.hypot(e.x - L2.x, e.z - L2.z) < L2.r + 30) { const dd = Math.hypot(x - L2.x, z - L2.z), lim = L2.r - 3; if (dd > lim) { x = L2.x + (x - L2.x) / dd * lim; z = L2.z + (z - L2.z) / dd * lim; fix = true; } }
+    else if (landAt(e.x, e.z)) { const L2 = landAt(e.x, e.z), dd = Math.hypot(x - L2.x, z - L2.z), lim = L2.r - 3; if (dd > lim) { x = L2.x + (x - L2.x) / dd * lim; z = L2.z + (z - L2.z) / dd * lim; fix = true; } }
     else if (rr > RAD - 3) { x *= (RAD - 3) / rr; z *= (RAD - 3) / rr; fix = true; }
     e.x = x; e.z = z; e.r = r;
     if (e.a !== 2) e.a = msg.a ? 1 : 0;
@@ -908,15 +914,18 @@ class Game {
   }
 
   // Vol à dos de dragon : de l'aire du dragon vers les Terres brûlées, et retour depuis la pierre d'atterrissage.
-  onFly(sess) {
+  onFly(sess, to) {
     const e = sess.ent, rec = sess.rec, f = this.forts[rec.slot], err = m => this.send(sess, { t: 'err', m });
     if (e.dead || sess.dg) return;
-    const land = { x: L2.x, z: L2.z - L2.r + 14 }, rp = this.fortPos(f, D.PLOTS.roost[0], D.PLOTS.roost[1]);
-    let to = null;
-    if (Math.hypot(e.x - land.x, e.z - land.z) < 14) to = this.fortPos(f, D.PLOTS.roost[0] + 6, D.PLOTS.roost[1] + 4);
-    else if (Math.hypot(e.x - rp.x, e.z - rp.z) < 12) { if (!(rec.b.roost > 0)) return err('Construis d\'abord l\'aire du dragon.'); to = { x: land.x + 5, z: land.z + 3 }; }
-    else return err('Rends-toi à ton aire du dragon.');
-    e.x = to.x; e.z = to.z;
+    const here = landAt(e.x, e.z), rp = this.fortPos(f, D.PLOTS.roost[0], D.PLOTS.roost[1]);
+    let dst = null;
+    if (here) { const ld = landing(here); if (Math.hypot(e.x - ld.x, e.z - ld.z) > 14) return err('Retourne à la pierre d\'atterrissage.'); dst = this.fortPos(f, D.PLOTS.roost[0] + 6, D.PLOTS.roost[1] + 4); }
+    else if (Math.hypot(e.x - rp.x, e.z - rp.z) < 12) {
+      const L = LANDS[to] || LANDS[0];
+      if ((rec.b.roost || 0) < L.need) return err(L.need > 1 ? 'Améliore l\'aire du dragon au niveau ' + L.need + '.' : 'Construis d\'abord l\'aire du dragon.');
+      const ld = landing(L); dst = { x: ld.x + 5, z: ld.z + 3 };
+    } else return err('Rends-toi à ton aire du dragon.');
+    e.x = dst.x; e.z = dst.z;
     for (const m of sess.minions) if (m.temp || m.rec.role === 'escort') { m.x = e.x + rnd(-3, 3); m.z = e.z + rnd(-3, 3); m.tgt = null; }
     this.send(sess, { t: 'tp', x: e.x, z: e.z, fly: 1 });
   }
@@ -1104,7 +1113,7 @@ class Game {
     for (const n of this.nodes) if (this.nodeStock(n) < n.max) nodes[n.id] = [n.stock, n.ts];
     for (const s of this.spawns) if (s.deadUntil > t) dead[s.id] = s.deadUntil;
     const villages = {}; for (const v of this.villages) if (v.owner) villages[v.id] = [v.owner, v.shieldUntil];
-    return { v: 4, villages, seed: this.seed, created: this.created, cfg: this.cfg, players: this.players, nodes, dead };
+    return { v: 4, cfgV: D.CONFIG_VERSION, villages, seed: this.seed, created: this.created, cfg: this.cfg, players: this.players, nodes, dead };
   }
 
   adminState() {

@@ -211,6 +211,7 @@ const Models = (function () {
         else if (k < 0.9) g.at(x, 0.1, z, R() * 3).box(0.4, 0.22, 0.35, [0.55, 0.55, 0.57]);
         else { g.at(x, 0, z).cyl(0.04, 0.04, 0.4, 3, [0.3, 0.5, 0.2]); g.at(x, 0.42, z).box(0.2, 0.12, 0.2, [[1, 0.85, 0.3], [0.95, 0.5, 0.7], [0.9, 0.9, 1]][i % 3]); }
       }
+      for (let i = 0; i < 900; i++) { const a = R() * TAU, r = WD.tier2 + Math.sqrt(R()) * (WD.radius - 8 - WD.tier2), x = Math.sin(a) * r, z = Math.cos(a) * r, c = col(x, z); if (R() < 0.7) { g.at(x, 0.35, z).ball(0.7 + R() * 0.5, 0.45, 0.7 + R() * 0.5, mul(c, 0.8), 5, 3); if (R() < 0.35) g.at(x + 0.3, 0.75, z + 0.2).box(0.14, 0.14, 0.14, [1.3, 0.3, 0.3]); } else { g.at(x, 0, z).cyl(0.07, 0.07, 0.35, 4, [0.9, 0.88, 0.8]); g.at(x, 0.35, z).cyl(0.26, 0.05, 0.2, 6, [0.8, 0.25, 0.2]); } }
       g.at(0, -0.5, 0).disc(1400, 16, [0.1, 0.19, 0.3]);
     });
   }
@@ -291,7 +292,6 @@ const Models = (function () {
     const P = PAL[cls] || PAL.lich, R = 24;
     return single('wall_' + cls, g => {
       const logs = cls === 'goblin' || cls === 'druid';
-      g.at(0, 0.03, 0).disc(26, 28, cls === 'goblin' ? [0.36, 0.29, 0.2] : cls === 'druid' ? [0.24, 0.36, 0.2] : cls === 'demon' ? [0.22, 0.14, 0.14] : cls === 'dwarf' ? [0.36, 0.36, 0.39] : [0.25, 0.24, 0.27]);
       const n = 96;
       for (let i = 0; i < n; i++) {
         let a = i / n * TAU; if (a > Math.PI) a -= TAU;
@@ -303,13 +303,14 @@ const Models = (function () {
       for (const s of [-1, 1]) { const a = s * 0.23, x = Math.sin(a) * R, z = Math.cos(a) * R; g.at(x, 0, z).cyl(0.75, 0.6, 5.5, 6, P.dark); g.at(x, 5.5, z).cyl(0.9, 0, 1.3, 6, P.roof); }
     });
   }
+  function wallGround(cls) { return single('wallg_' + cls, g => { g.at(0, 0.03, 0).disc(26, 28, cls === 'goblin' ? [0.36, 0.29, 0.2] : cls === 'druid' ? [0.24, 0.36, 0.2] : cls === 'demon' ? [0.22, 0.14, 0.14] : cls === 'dwarf' ? [0.36, 0.36, 0.39] : [0.25, 0.24, 0.27]); }); }
+  function villageGround() { return single('villg', g => { g.at(0, 0.03, 0).disc(15, 20, [0.46, 0.4, 0.3]); }); }
   function banner() {
     return single('banner', g => { for (const s of [-1, 1]) { const a = s * 0.23, x = Math.sin(a) * 24, z = Math.cos(a) * 24; g.at(x, 3.6, z + 0.85).box(1.3, 2.4, 0.08, [1, 1, 1]); g.at(x, 2.15, z + 0.85, 0, 0, Math.PI / 4).box(0.9, 0.9, 0.08, [1, 1, 1]); } });
   }
   function village(rich) {
     return single('village' + rich, g => {
       const n = rich > 1 ? 7 : 5, wall = rich > 1 ? [0.78, 0.74, 0.66] : [0.72, 0.62, 0.48], roof = rich > 1 ? [0.5, 0.22, 0.18] : [0.62, 0.45, 0.22];
-      g.at(0, 0.03, 0).disc(15, 20, [0.46, 0.4, 0.3]);
       for (let i = 0; i < n; i++) {
         const a = i / n * TAU + 0.3, x = Math.sin(a) * 10.5, z = Math.cos(a) * 10.5;
         g.at(x, 1.3, z, a).box(4, 2.6, 3.4, wall); g.at(x, 2.6, z, a + Math.PI / 4).cyl(3.3, 0, 1.9, 4, roof);
@@ -340,18 +341,17 @@ const Models = (function () {
       for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.4; g.at(Math.sin(a) * 18, 0, Math.cos(a) * 18).cyl(1, 0.8, 6, 6, [0.24, 0.22, 0.3]); }
     });
   }
-  function terrain2() {
-    return single('terrain2', g => {
-      const R = rng(777), v = g.v, S = 10, L = DATA.LAND2, RAD = L.r + 8;
-      const col = (x, z) => { const r = Math.hypot(x, z), n = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin(x * 0.21 + z * 0.13) * Math.cos(z * 0.17 - x * 0.09)), lava = Math.sin(x * 0.08) * Math.cos(z * 0.07) > 0.82; return lava ? [1.6, 0.5, 0.1] : r > L.r - 6 ? [0.2 * n, 0.14 * n, 0.14 * n] : [0.3 * n, 0.19 * n, 0.17 * n]; };
+  function terrainLand(li) {
+    return single('land' + li, g => {
+      const L = DATA.LANDS[li], R = rng(777 + li * 31), v = g.v, S = 10, RAD = L.r + 8;
+      const col = (x, z) => { const r = Math.hypot(x, z), n = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin(x * 0.21 + z * 0.13) * Math.cos(z * 0.17 - x * 0.09)), vein = Math.sin(x * 0.08) * Math.cos(z * 0.07) > 0.82, c = r > L.r - 6 ? L.edge : L.ground; return vein ? L.vein : [c[0] * n, c[1] * n, c[2] * n]; };
       for (let x = -RAD; x < RAD; x += S) for (let z = -RAD; z < RAD; z += S) {
         if (Math.hypot(x + S / 2, z + S / 2) > RAD + S) continue;
         for (const [px, pz] of [[x, z], [x, z + S], [x + S, z + S], [x, z], [x + S, z + S], [x + S, z]]) { const c = col(px, pz); v.push(px, 0, pz, 0, 1, 0, c[0], c[1], c[2]); }
       }
-      for (let i = 0; i < 700; i++) { const a = R() * TAU, r = Math.sqrt(R()) * (L.r - 4), x = Math.sin(a) * r, z = Math.cos(a) * r; if (R() < 0.6) g.at(x, 0.15, z, R() * 3).box(0.5 + R(), 0.3 + R() * 0.6, 0.5 + R(), [0.16, 0.13, 0.14]); else g.at(x, 0, z, R() * 3).cyl(0.25, 0, 1 + R() * 1.6, 4, [0.12, 0.1, 0.1]); }
-      // Pierre d'atterrissage.
-      const lz = -L.r + 14; g.at(0, 0.05, lz).disc(7, 14, [0.4, 0.36, 0.4]); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; g.at(Math.sin(a) * 6.5, 0, lz + Math.cos(a) * 6.5).cyl(0.5, 0.35, 3, 5, [0.3, 0.27, 0.32]); g.at(Math.sin(a) * 6.5, 3.2, lz + Math.cos(a) * 6.5).ball(0.3, 0.4, 0.3, [2.2, 0.8, 0.2], 4, 3); }
-      g.at(0, -0.5, 0).disc(700, 16, [0.25, 0.07, 0.04]);
+      for (let i = 0; i < 800; i++) { const a = R() * TAU, r = Math.sqrt(R()) * (L.r - 4), x = Math.sin(a) * r, z = Math.cos(a) * r; if (R() < 0.6) g.at(x, 0.15, z, R() * 3).box(0.5 + R(), 0.3 + R() * 0.6, 0.5 + R(), L.prop); else g.at(x, 0, z, R() * 3).cyl(0.3, 0, 1 + R() * 2.2, 4, mul(L.prop, li ? 1.25 : 0.75)); }
+      const lz = -L.r + 14; g.at(0, 0.05, lz).disc(7, 14, [0.4, 0.36, 0.4]); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; g.at(Math.sin(a) * 6.5, 0, lz + Math.cos(a) * 6.5).cyl(0.5, 0.35, 3, 5, [0.3, 0.27, 0.32]); g.at(Math.sin(a) * 6.5, 3.2, lz + Math.cos(a) * 6.5).ball(0.3, 0.4, 0.3, L.glow, 4, 3); }
+      g.at(0, -0.5, 0).disc(800, 16, L.sea);
     });
   }
   function emptyFort() {
@@ -363,7 +363,7 @@ const Models = (function () {
   }
 
   return {
-    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag, portal, dungeonFloor, terrain2,
+    init(e) { eng = e; }, get, node, terrain, building, wall, banner, emptyFort, village, villageFlag, portal, dungeonFloor, terrainLand, wallGround, villageGround,
     cube: () => single('cube', g => g.box(1, 1, 1, [1, 1, 1])),
     disc: () => single('disc', g => g.disc(1, 16, [1, 1, 1])),
     orb: () => single('orb', g => g.ball(1, 1, 1, [1, 1, 1], 6, 4)),
